@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+
+  riak:
+    networks:
+      net0:
+        aliases:
+          - riak
+    ports:
+      - "8087:8087"
+      - "8098:8098"
+      - "9080:9080"
+    image: riak_cs_service_bundle_riak
+    deploy:
+      replicas: ${N_RIAK_NODES:-3}
+
+  stanchion:
+    networks:
+      net0:
+        aliases:
+          - stanchion
+    ports:
+      - "8085:8085"
+    image: riak_cs_service_bundle_stanchion
+    deploy:
+      replicas: 1
+
+  riak_cs:
+    networks:
+      net0:
+        aliases:
+          - riak_cs
+    ports:
+      - "8080:8080"
+      - "8000:8000"
+    image: riak_cs_service_bundle_riak_cs
+    deploy:
+      replicas: ${N_RCS_NODES:-2}
+
+  riak_cs_control:
+    networks:
+      net0:
+        aliases:
+          - riak_cs_control
+    ports:
+      - "8090:8090"
+    image: riak_cs_service_bundle_riak_cs_control
+    deploy:
+      replicas: 1
+
+networks:
+  net0:
+    attachable: true
