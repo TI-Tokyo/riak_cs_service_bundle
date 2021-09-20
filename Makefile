@@ -5,9 +5,7 @@ RIAK_CS_VSN    	    ?= 3.0.0pre8
 STANCHION_VSN  	    ?= 3.0.0pre8
 RIAK_CS_CONTROL_VSN ?= 3.0.0pre3
 
-RIAK_DATA      ?= $(shell pwd)/data/riak
-RIAK_CS_DATA   ?= $(shell pwd)/data/riak_cs
-STANCHION_DATA ?= $(shell pwd)/data/stanchion
+RIAK_PLATFORM_DIR      ?= $(shell pwd)/p/riak
 
 N_RIAK_NODES     ?= 3
 N_RCS_NODES      ?= 2
@@ -23,11 +21,12 @@ build:
 	    --build-arg STANCHION_VSN=$(STANCHION_VSN) \
 	    --build-arg RIAK_CS_CONTROL_VSN=$(RIAK_CS_CONTROL_VSN)
 
-up: build
+up: build ensure-dirs
 	@docker swarm init >/dev/null || :
 	@COMPOSE_FILE=docker-compose-scalable-run.yml \
 	 N_RIAK_NODES=$(N_RIAK_NODES) \
 	 N_RCS_NODES=$(N_RCS_NODES) \
+	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
 	    docker stack deploy -c docker-compose-scalable-run.yml $(DOCKER_SERVICE_NAME) \
 	 && ./stage-two.py \
 		$(DOCKER_SERVICE_NAME) \
@@ -40,7 +39,7 @@ down:
 	    docker stack rm $(DOCKER_SERVICE_NAME)
 
 ensure-dirs:
-	@mkdir -p $(RIAK_DATA) $(RIAK_CS_DATA) $(STANCHION_DATA)
+	@mkdir -p $(RIAK_PLATFORM_DIR){/data,/log}
 
 clean:
-	@rm -rf $(RIAK_DATA) $(RIAK_CS_DATA) $(STANCHION_DATA)
+	@sudo rm -rf $(RIAK_PLATFORM_DIR)

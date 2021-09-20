@@ -11,6 +11,14 @@ services:
       - "8098:8098"
       - "9080:9080"
     image: riak_cs_service_bundle_riak
+    volumes:
+      - type: bind
+        source: ${RIAK_PLATFORM_DIR}/data
+        target: /var/lib/riak/data
+      - type: bind
+        source: ${RIAK_PLATFORM_DIR}/log
+        target: /var/log/riak
+
     deploy:
       replicas: ${N_RIAK_NODES:-3}
 

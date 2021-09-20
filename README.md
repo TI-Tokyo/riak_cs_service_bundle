@@ -30,7 +30,8 @@ The entire stack can be stopped with `make down`.
 
 ## Persisting state
 
-Within containers, application data are bind-mounted to local
-filesystem at locations `RIAK_DATA`, `RIAK_CS_DATA` and
-`STANCHION_DATA`. Unless explicitly set, these directories will be
-created in "./data" (not currently implemented).
+Within containers, riak data dirs are bind-mounted to local filesystem
+at `${RIAK_PLATFORM_DIR}/riak/data/${N}`, where `N` is the riak node
+number (1-based).  Unless explicitly set, directories will be created
+in "./p".  Similarly, riak logs can be found at
+`${RIAK_PLATFORM_DIR}/riak/logs/${N}`.
