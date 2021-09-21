@@ -5,13 +5,19 @@ RIAK_CS_VSN    	    ?= 3.0.0pre8
 STANCHION_VSN  	    ?= 3.0.0pre8
 RIAK_CS_CONTROL_VSN ?= 3.0.0pre3
 
-RIAK_PLATFORM_DIR      ?= $(shell pwd)/p/riak
+RIAK_PLATFORM_DIR      ?= $(shell pwd)/p
 
 N_RIAK_NODES     ?= 3
 N_RCS_NODES      ?= 2
 RCS_AUTH_V4      ?= on
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
+
+build-R16:
+	(cd R16 && test -r openssl-1.0.2u.tar.gz || wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2u.tar.gz)
+	(cd R16 && test -r OTP_R16B02_basho10.tar.gz || wget https://github.com/basho/otp/archive/refs/tags/OTP_R16B02_basho10.tar.gz)
+	(cd R16 && test -r autoconf-2.59.tar.bz2 || wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.59.tar.bz2)
+	(cd R16 && docker build --tag erlang:R16 .)
 
 build:
 	@COMPOSE_FILE=docker-compose-scalable-build.yml \
