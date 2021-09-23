@@ -7,27 +7,31 @@ services:
       - "8098:8098"
       - "9080:9080"
     build:
-      dockerfile: riak/Dockerfile
+      dockerfile: riak/${RIAK_DOCKERFILE}
       context: .
+    image: "rcs_bundle_riak.${RIAK_VSN}"
 
   stanchion:
     ports:
       - "8085:8085"
     build:
-      dockerfile: stanchion/Dockerfile
+      dockerfile: stanchion/${STANCHION_DOCKERFILE}
       context: .
+    image: "rcs_bundle_stanchion.${STANCHION_VSN}"
 
   riak_cs:
     ports:
       - "8080:8080"
       - "8000:8000"
     build:
-      dockerfile: riak_cs/Dockerfile
+      dockerfile: riak_cs/${RIAK_CS_DOCKERFILE}
       context: .
+    image: "rcs_bundle_riak_cs.${RIAK_CS_VSN}"
 
   riak_cs_control:
     ports:
       - "8090:8090"
     build:
-      dockerfile: riak_cs_control/Dockerfile
+      dockerfile: riak_cs_control/${RIAK_CS_CONTROL_DOCKERFILE}
       context: .
+    image: "rcs_bundle_riak_cs_control.${RIAK_CS_CONTROL_VSN}"

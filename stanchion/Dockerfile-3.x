@@ -16,13 +16,9 @@ RUN ./rebar3 as rel release
 
 FROM debian:buster AS runtime-image
 
-RUN apt-get update && apt-get -y install libssl1.1 #curl
+RUN apt-get update && apt-get -y install libssl1.1
 
 COPY --from=compile-image /usr/src/s/_build/rel/rel/stanchion /opt/stanchion
-
-## whatever works
-#RUN echo "$riak_host:$riak_http_port/ping" >/tmp/curlop
-#CMD while ! curl -s $(cat /tmp/curlop) >/dev/null; do sleep 1; done && /opt/stanchion/bin/stanchion foreground
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

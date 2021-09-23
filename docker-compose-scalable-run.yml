@@ -10,15 +10,14 @@ services:
       - "8087:8087"
       - "8098:8098"
       - "9080:9080"
-    image: riak_cs_service_bundle_riak
+    image: "rcs_bundle_riak.${RIAK_VSN}"
     volumes:
       - type: bind
         source: ${RIAK_PLATFORM_DIR}/data
-        target: /var/lib/riak/data
+        target: /opt/riak/data
       - type: bind
         source: ${RIAK_PLATFORM_DIR}/log
-        target: /var/log/riak
-
+        target: /opt/riak/log
     deploy:
       replicas: ${N_RIAK_NODES:-3}
 
@@ -29,7 +28,7 @@ services:
           - stanchion
     ports:
       - "8085:8085"
-    image: riak_cs_service_bundle_stanchion
+    image: "rcs_bundle_stanchion.${STANCHION_VSN}"
     deploy:
       replicas: 1
 
@@ -41,7 +40,7 @@ services:
     ports:
       - "8080:8080"
       - "8000:8000"
-    image: riak_cs_service_bundle_riak_cs
+    image: "rcs_bundle_riak_cs.${RIAK_CS_VSN}"
     deploy:
       replicas: ${N_RCS_NODES:-2}
 
@@ -52,7 +51,7 @@ services:
           - riak_cs_control
     ports:
       - "8090:8090"
-    image: riak_cs_service_bundle_riak_cs_control
+    image: "rcs_bundle_riak_cs_control.${RIAK_CS_CONTROL_VSN}"
     deploy:
       replicas: 1
 

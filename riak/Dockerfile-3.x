@@ -2,17 +2,30 @@ FROM debian:buster
 
 ARG RIAK_VSN=3.0.7
 
-ENV PKG=riak_${RIAK_VSN}-OTP22.3_amd64.deb
+FROM erlang:22.3.4.10 AS compile-image
+ARG RIAK_VSN
 
-RUN apt-get update && apt-get install -y wget logrotate sudo
-RUN wget -q https://files.tiot.jp/riak/kv/3.0/${RIAK_VSN}/debian/10/${PKG}
-RUN dpkg -i ${PKG} && rm ${PKG}
+RUN apt-get update && apt-get install -y libpam0g-dev
+
+WORKDIR /usr/src
+ADD https://github.com/basho/riak/archive/refs/tags/riak-${RIAK_VSN}.tar.gz source.tar.gz
+RUN tar xzf source.tar.gz && rm source.tar.gz
+RUN mv riak-riak-${RIAK_VSN} r
+WORKDIR r
+
+RUN ./rebar3 as rel release
+
+FROM debian:buster AS runtime-image
+ARG RIAK_VSN
+
+RUN apt-get update && apt-get -y install libssl1.1 logrotate sudo
+
+COPY --from=compile-image /usr/src/r/_build/rel/rel/riak /opt/riak
 
 RUN sed -i \
     -e "s|storage_backend = bitcask|storage_backend = multi|" \
-    /etc/riak/riak.conf
-RUN echo "buckets.default.allow_mult = true" >>/etc/riak/riak.conf
-RUN echo "buckets.default.merge_strategy = 2" >>/etc/riak/riak.conf
+    /opt/riak/etc/riak.conf
+RUN echo "buckets.default.allow_mult = true\nbuckets.default.merge_strategy = 2\n" >>/opt/riak/etc/riak.conf
 
 RUN sed -i \
     -e "s|]\\.|, \
@@ -27,13 +40,11 @@ RUN sed -i \
       {storage_backend,riak_kv_multi_backend} \
      ]} \
      ].|" \
-     /etc/riak/advanced.config
+     /opt/riak/etc/advanced.config
 
 EXPOSE 8087 8098 9080
 
-RUN chown -R riak:riak /var/lib/riak
-RUN echo "riak soft nofile 65536" >>/etc/security/limits.conf
-RUN echo "riak hard nofile 65536" >>/etc/security/limits.conf
+RUN echo "riak soft nofile 65536\nriak hard nofile 65536\n" >>/etc/security/limits.conf
 
 #USER riak
 
