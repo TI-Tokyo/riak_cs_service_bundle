@@ -113,7 +113,7 @@ def join_riak_nodes(nodes):
 # riak_cs
 # =======================
 
-def preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_node, auth_v4):
+def preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_node):
     n = 0
     m = 0
     print("Configuring Riak CS nodes")
@@ -123,7 +123,6 @@ def preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_node, auth_v4):
                                   "-e", "s|nodename = .+|nodename = %s|" % nodename,
                                   "-e", "s|listener = .+|listener = 0.0.0.0:8080|",
                                   "-e", "s|riak_host = .+|riak_host = %s:8087|" % riak_nodes[m]["ip"],
-                                  "-e", "s|auth_v4 = .+|auth_v4 = %s|" % auth_v4,
                                   "-e", "s|stanchion_host = .+|stanchion_host = %s:8085|" % stanchion_node["ip"],
                                   "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
                                   "/opt/riak-cs/etc/riak-cs.conf"])
@@ -150,8 +149,12 @@ def enable_rcs_auth_bypass(node):
 def restore_rcs_advanced_config(node):
     docker_exec_proc(node, ["mv", "/opt/riak-cs/etc/advanced.config.backup", "/opt/riak-cs/etc/advanced.config"])
 
-def finalize_rcs_config(rcs_nodes, admin_key_id):
+def finalize_rcs_config(rcs_nodes, admin_key_id, auth_v4):
     print("Reonfiguring Riak CS nodes")
+    if auth_v4:
+        auth_v4_erl = "true"
+    else:
+        auth_v4_erl = "false"
     for rn in rcs_nodes:
         p = docker_exec_proc(rn, ["sed", "-i", "-E",
                                   "-e", "s|anonymous_user_creation = on|anonymous_user_creation = off|",
@@ -159,6 +162,8 @@ def finalize_rcs_config(rcs_nodes, admin_key_id):
                                   "/opt/riak-cs/etc/riak-cs.conf"])
         if p.returncode != 0:
             sys.exit("Failed to modify riak-cs.conf node at %s: %s%s" % (rn["ip"], p.stdout, p.stderr))
+        docker_exec_proc(rn, ["sed", "-zEie", "s/.+/[{riak_cs,[{auth_v4_enabled,%s}]}]./" % auth_v4_erl,
+                              "/opt/riak-cs/etc/advanced.config"]).stdout
 
 
 def start_rcs_nodes(nodes, do_restart = False):
@@ -324,7 +329,7 @@ def main():
         join_riak_nodes(riak_nodes)
 
 
-    preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_nodes[0], auth_v4)
+    preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_nodes[0])
     preconfigure_stanchion_node(stanchion_nodes[0], riak_nodes)
     start_stanchion_node(stanchion_nodes[0])
 
@@ -348,7 +353,7 @@ def main():
 
     finalize_stanchion_config(stanchion_nodes[0], admin_user["key_id"])
     start_stanchion_node(stanchion_nodes[0], do_restart = True)
-    finalize_rcs_config(rcs_nodes, admin_user["key_id"])
+    finalize_rcs_config(rcs_nodes, admin_user["key_id"], auth_v4)
     start_rcs_nodes(rcs_nodes, do_restart = True)
 
     start_rcs_control(rcsc_nodes[0], rcs_nodes[0]["ip"], admin_user)
