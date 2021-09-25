@@ -27,12 +27,9 @@ else
 STANCHION_DOCKERFILE := Dockerfile-3.x
 endif
 
-ifneq ($(RIAK_CS_CONTROL_VSN:1.%=xx%), $(RIAK_CS_CONTROL_VSN))
-RIAK_CS_CONTROL_DOCKERFILE := Dockerfile-1.x
-else
+# old  riak-cs-control won't build with R16
+# (and it doesn't really matter anyway)
 RIAK_CS_CONTROL_DOCKERFILE := Dockerfile-3.x
-endif
-
 
 
 RIAK_PLATFORM_DIR ?= $(shell pwd)/p
@@ -40,6 +37,9 @@ RIAK_PLATFORM_DIR ?= $(shell pwd)/p
 N_RIAK_NODES     ?= 3
 N_RCS_NODES      ?= 2
 RCS_AUTH_V4      ?= on
+
+S3_BENCHMARK_PATH   ?= skip
+S3_BENCHMARK_PARAMS ?= "-t 5 -l 3 -d 30"
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
@@ -59,14 +59,17 @@ build:
 	 RIAK_CS_DOCKERFILE=$(RIAK_CS_DOCKERFILE) \
 	 STANCHION_DOCKERFILE=$(STANCHION_DOCKERFILE) \
 	 RIAK_CS_CONTROL_DOCKERFILE=$(RIAK_CS_CONTROL_DOCKERFILE) \
-	docker-compose build \
+	 docker-compose build \
 	    --build-arg RIAK_VSN=$(RIAK_VSN) \
 	    --build-arg RIAK_CS_VSN=$(RIAK_CS_VSN) \
 	    --build-arg STANCHION_VSN=$(STANCHION_VSN) \
 	    --build-arg RIAK_CS_CONTROL_VSN=$(RIAK_CS_CONTROL_VSN)
 
-up: build ensure-dirs
+start: build ensure-dirs
 	@docker swarm init >/dev/null 2>&1 || :
+	@echo
+	@echo =======================================================================
+	@echo Starting bundle with RIAK_VSN=$(RIAK_VSN) and RIAK_CS_VSN=$(RIAK_CS_VSN)
 	@export \
 	 RIAK_VSN=$(RIAK_VSN) \
 	 RIAK_CS_VSN=$(RIAK_CS_VSN) \
@@ -78,11 +81,11 @@ up: build ensure-dirs
 	 && docker stack deploy -c docker-compose-scalable-run.yml $(DOCKER_SERVICE_NAME) \
 	 && ./stage-two.py \
 		$(DOCKER_SERVICE_NAME) \
-		$(N_RIAK_NODES) \
-		$(N_RCS_NODES) \
-		$(RCS_AUTH_V4)
+		$(N_RIAK_NODES) $(N_RCS_NODES)\
+		$(RCS_AUTH_V4) \
+	        $(S3_BENCHMARK_PATH) $(S3_BENCHMARK_PARAMS)
 
-down:
+stop:
 	@COMPOSE_FILE=docker-compose-scalable-run.yml \
 	    docker stack rm $(DOCKER_SERVICE_NAME)
 

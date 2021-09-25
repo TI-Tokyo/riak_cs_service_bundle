@@ -1,3 +1,5 @@
 p/
 R16/*.gz
 R16/*.bz2
+benchmark.log
+load-test-report

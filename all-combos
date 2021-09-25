@@ -1,0 +1,18 @@
+#!/bin/bash
+
+export S3_BENCHMARK_PATH="../s3-benchmark/s3-benchmark"
+
+for rv in 2.2.6 2.9.8 3.0.7; do
+    for rcv in 2.1.3pre1 3.0.0pre8; do
+        if [ $rcv = "2.1.3pre1" ]; then
+            sv="2.1.2"
+        else
+            sv=$rcv
+        fi
+        RIAK_VSN=$rv RIAK_CS_VSN=$rcv STANCHION_VSN=$sv make start
+        make stop
+        sleep 10
+        make clean
+        sleep 10
+    done
+done

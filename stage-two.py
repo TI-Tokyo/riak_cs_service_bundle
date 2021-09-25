@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import json, sys, os, time, subprocess, httplib2
+import json, sys, os, time, subprocess, httplib2, multiprocessing
 
 
 # riak
@@ -307,17 +307,47 @@ def get_admin_user(host):
             retries = retries - 1
 
 
+def load_test(s3_benchmark_path, s3_benchmark_params, rcs_hosts, aws_key_id, aws_key_secret):
+    if s3_benchmark_path == "skip":
+        print("Skipping load-test (set S3_BENCHMARK_PATH to a path to s3-benchmark executable to enable it)")
+        return
+#    print("\nWaiting 20 sec for riak to settle")
+#    time.sleep(20)
+    with multiprocessing.Pool(len(rcs_hosts)) as p:
+        p.starmap(load_test_on_node,
+                  [(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
+                   for h in rcs_hosts])
+
+def load_test_on_node(rcs_host, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret):
+    print("Running load test (%s %s) with Riak CS at %s:" % (s3_benchmark_path, s3_benchmark_params, rcs_host))
+    p = subprocess.run(env = {"http_proxy": "http://" + rcs_host + ":8080"},
+                       args = [s3_benchmark_path, "-a", aws_key_id, "-s", aws_key_secret] + s3_benchmark_params.split(" "),
+                       capture_output = True,
+                       encoding = 'utf8')
+    print("load test completed with code %d:\n%s\n%s" % (p.returncode, p.stderr, p.stdout))
+    with open("load-test-report", mode="a") as f:
+        print("""
+-------------------------------------
+RIAK_VSN=%s RIAK_CS_VSN=%s node=%s
+%s
+""" % (os.getenv("RIAK_VSN"), os.getenv("RIAK_CS_VSN"), rcs_host, p.stdout),
+              file=f)
+
+
 def main():
     tussle_name = sys.argv[1]
     required_riak_nodes = int(sys.argv[2])
     required_rcs_nodes = int(sys.argv[3])
     auth_v4 = sys.argv[4]
+    s3_benchmark_path = sys.argv[5]
+    s3_benchmark_params = sys.argv[6]
 
     riak_nodes      = discover_nodes(tussle_name, "riak", required_riak_nodes)
     rcs_nodes       = discover_nodes(tussle_name, "riak_cs", required_rcs_nodes)
     stanchion_nodes = discover_nodes(tussle_name, "stanchion", 1)
     rcsc_nodes      = discover_nodes(tussle_name, "riak_cs_control", 1)
 
+    riak_ext_ips = [find_external_ips(c["container"]) for c in riak_nodes]
     rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
     rcsc_ext_ip = find_external_ips(rcsc_nodes[0]["container"])
 
@@ -358,10 +388,17 @@ def main():
 
     start_rcs_control(rcsc_nodes[0], rcs_nodes[0]["ip"], admin_user)
 
-    print("Riak CS external addresses are:")
+    print("Riak external addresses:")
+    for ip in riak_ext_ips:
+        print("  %s" % ip)
+    print("Riak CS external addresses:")
     for ip in rcs_ext_ips:
         print("  %s" % ip)
-    print("Riak CS Control external address is:\n  %s" % rcsc_ext_ip)
+    print("Riak CS Control external address:\n  %s" % rcsc_ext_ip)
+
+    load_test(s3_benchmark_path, s3_benchmark_params,
+              rcs_ext_ips,
+              admin_user["key_id"], admin_user["key_secret"])
 
 if __name__ == "__main__":
     main()
