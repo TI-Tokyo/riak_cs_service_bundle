@@ -307,16 +307,20 @@ def get_admin_user(host):
             retries = retries - 1
 
 
-def load_test(s3_benchmark_path, s3_benchmark_params, rcs_hosts, aws_key_id, aws_key_secret):
+def load_test(s3_benchmark_path, s3_benchmark_params, do_parallel, rcs_hosts, aws_key_id, aws_key_secret):
     if s3_benchmark_path == "skip":
         print("Skipping load-test (set S3_BENCHMARK_PATH to a path to s3-benchmark executable to enable it)")
         return
 #    print("\nWaiting 20 sec for riak to settle")
 #    time.sleep(20)
-    with multiprocessing.Pool(len(rcs_hosts)) as p:
-        p.starmap(load_test_on_node,
-                  [(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
-                   for h in rcs_hosts])
+    if do_parallel:
+        with multiprocessing.Pool(len(rcs_hosts)) as p:
+            p.starmap(load_test_on_node,
+                      [(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
+                       for h in rcs_hosts])
+    else:
+        load_test_on_node(rcs_hosts[0], s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
+
 
 def load_test_on_node(rcs_host, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret):
     print("Running load test (%s %s) with Riak CS at %s:" % (s3_benchmark_path, s3_benchmark_params, rcs_host))
@@ -341,6 +345,7 @@ def main():
     auth_v4 = sys.argv[4]
     s3_benchmark_path = sys.argv[5]
     s3_benchmark_params = sys.argv[6]
+    do_parallel_load_test = int(sys.argv[7])
 
     riak_nodes      = discover_nodes(tussle_name, "riak", required_riak_nodes)
     rcs_nodes       = discover_nodes(tussle_name, "riak_cs", required_rcs_nodes)
@@ -397,7 +402,7 @@ def main():
     print("Riak CS Control external address:\n  %s" % rcsc_ext_ip)
 
     load_test(s3_benchmark_path, s3_benchmark_params,
-              rcs_ext_ips,
+              do_parallel_load_test, rcs_ext_ips,
               admin_user["key_id"], admin_user["key_secret"])
 
 if __name__ == "__main__":

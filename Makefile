@@ -40,6 +40,7 @@ RCS_AUTH_V4      ?= on
 
 S3_BENCHMARK_PATH   ?= skip
 S3_BENCHMARK_PARAMS ?= "-t 5 -l 3 -d 30"
+DO_PARALLEL_LOAD_TEST ?= 1
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
@@ -83,7 +84,8 @@ start: build ensure-dirs
 		$(DOCKER_SERVICE_NAME) \
 		$(N_RIAK_NODES) $(N_RCS_NODES)\
 		$(RCS_AUTH_V4) \
-	        $(S3_BENCHMARK_PATH) $(S3_BENCHMARK_PARAMS)
+	        $(S3_BENCHMARK_PATH) $(S3_BENCHMARK_PARAMS) \
+	        $(DO_PARALLEL_LOAD_TEST)
 
 stop:
 	@COMPOSE_FILE=docker-compose-scalable-run.yml \
