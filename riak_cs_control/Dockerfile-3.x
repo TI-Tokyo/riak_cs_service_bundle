@@ -1,4 +1,4 @@
-ARG RIAK_CS_CONTROL_VSN=3.0.0 \
+ARG RCSC_VSN=3.0.0 \
     CS_HOST \
     CS_PORT=8080 \
     CS_PROTO="http" \
@@ -6,16 +6,13 @@ ARG RIAK_CS_CONTROL_VSN=3.0.0 \
     CS_ADMIN_KEY="admin-key" \
     CS_ADMIN_SECRET="admin-secret"
 
-FROM erlang:22.3.4.10 AS compile-image
-ARG RIAK_CS_CONTROL_VSN
+FROM erlang:22 AS compile-image
+ARG RCSC_VSN
 
 EXPOSE 8090
 
-WORKDIR /usr/src
-ADD https://github.com/TI-Tokyo/riak_cs_control/archive/refs/tags/${RIAK_CS_CONTROL_VSN}.tar.gz source.tar.gz
-RUN tar xzf source.tar.gz
-RUN mv riak_cs_control-${RIAK_CS_CONTROL_VSN} s
-WORKDIR s
+ADD riak_cs_control/riak_cs_control-${RCSC_VSN} /usr/src/S
+WORKDIR /usr/src/S
 
 RUN ./rebar3 as rel release
 
@@ -36,7 +33,7 @@ ENV CS_HOST=${CS_HOST} \
 
 RUN apt-get update && apt-get -y install libssl1.1
 
-COPY --from=compile-image /usr/src/s/_build/rel/rel/riak_cs_control /opt/riak_cs_control
+COPY --from=compile-image /usr/src/S/_build/rel/rel/riak_cs_control /opt/riak_cs_control
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

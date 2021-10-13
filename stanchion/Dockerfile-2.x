@@ -1,17 +1,13 @@
-ARG STANCHION_VSN=2.1.2
-
 FROM erlang:R16 AS compile-image
 ARG STANCHION_VSN
 
-RUN apt-get install -y git
+RUN apt-get install -y git wget g++ libpam0g-dev
 
-WORKDIR /usr/src
-RUN git clone -b ${STANCHION_VSN} --depth 2 https://github.com/TI-Tokyo/stanchion
-WORKDIR stanchion
-
+ADD stanchion/stanchion-${STANCHION_VSN} /usr/src/S
+WORKDIR /usr/src/S
 RUN make rel
 
-RUN mv /usr/src/stanchion/rel/stanchion /opt/stanchion
+RUN mv /usr/src/S/rel/stanchion /opt/stanchion
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

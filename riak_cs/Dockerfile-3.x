@@ -1,13 +1,10 @@
-ARG RIAK_CS_VSN=3.0.0
+ARG RCS_VSN=3.0.0
 
-FROM erlang:22.3.4.10 AS compile-image
-ARG RIAK_CS_VSN
+FROM erlang:22 AS compile-image
+ARG RCS_VSN
 
-WORKDIR /usr/src
-ADD https://github.com/TI-Tokyo/riak_cs/archive/refs/tags/${RIAK_CS_VSN}.tar.gz source.tar.gz
-RUN tar xzf source.tar.gz
-RUN mv riak_cs-${RIAK_CS_VSN} rcs
-WORKDIR rcs
+ADD riak_cs/riak_cs-${RCS_VSN} /usr/src/S
+WORKDIR /usr/src/S
 
 EXPOSE 8080 8000
 
@@ -17,7 +14,7 @@ FROM debian:buster AS runtime-image
 
 RUN apt-get update && apt-get -y install libssl1.1
 
-COPY --from=compile-image /usr/src/rcs/_build/rel/rel/riak-cs /opt/riak-cs
+COPY --from=compile-image /usr/src/S/_build/rel/rel/riak-cs /opt/riak-cs
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

@@ -40,7 +40,7 @@ services:
     ports:
       - "8080:8080"
       - "8000:8000"
-    image: "rcs_bundle_riak_cs.${RIAK_CS_VSN}"
+    image: "rcs_bundle_riak_cs.${RCS_VSN}"
     deploy:
       replicas: ${N_RCS_NODES:-2}
 
@@ -51,7 +51,7 @@ services:
           - riak_cs_control
     ports:
       - "8090:8090"
-    image: "rcs_bundle_riak_cs_control.${RIAK_CS_CONTROL_VSN}"
+    image: "rcs_bundle_riak_cs_control.${RCSC_VSN}"
     deploy:
       replicas: 1
 

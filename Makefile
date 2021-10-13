@@ -1,9 +1,9 @@
-.PHONY: ensure-dirs build up down clean
+.PHONY: ensure-dirs sources R16 build start stop clean
 
-RIAK_VSN       	    ?= 3.0.7
-RIAK_CS_VSN    	    ?= 3.0.0pre8
+RIAK_VSN       	    ?= 3.0.8
+RCS_VSN    	    ?= 3.0.0pre8
 STANCHION_VSN  	    ?= 3.0.0pre8
-RIAK_CS_CONTROL_VSN ?= 3.0.0pre3
+RCSC_VSN            ?= 3.0.0pre3
 
 # select Dockerfiles. For apps that we build ourself, we use either
 # the standard erlang:22.x base image (for 3.x tags), or the image
@@ -15,10 +15,10 @@ else
 RIAK_DOCKERFILE := Dockerfile-3.x
 endif
 
-ifneq ($(RIAK_CS_VSN:2.%=xx%), $(RIAK_CS_VSN))
-RIAK_CS_DOCKERFILE := Dockerfile-2.x
+ifneq ($(RCS_VSN:2.%=xx%), $(RCS_VSN))
+RCS_DOCKERFILE := Dockerfile-2.x
 else
-RIAK_CS_DOCKERFILE := Dockerfile-3.x
+RCS_DOCKERFILE := Dockerfile-3.x
 endif
 
 ifneq ($(STANCHION_VSN:2.%=xx%), $(STANCHION_VSN))
@@ -27,9 +27,9 @@ else
 STANCHION_DOCKERFILE := Dockerfile-3.x
 endif
 
-# old  riak-cs-control won't build with R16
+# old riak-cs-control won't build with R16
 # (and it doesn't really matter anyway)
-RIAK_CS_CONTROL_DOCKERFILE := Dockerfile-3.x
+RCSC_DOCKERFILE := Dockerfile-3.x
 
 
 RIAK_PLATFORM_DIR ?= $(shell pwd)/p
@@ -39,47 +39,64 @@ N_RCS_NODES      ?= 2
 RCS_AUTH_V4      ?= on
 
 S3_BENCHMARK_PATH   ?= skip
-S3_BENCHMARK_PARAMS ?= "-t 5 -l 3 -d 30"
+S3_BENCHMARK_PARAMS ?= "-t 5 -l 10 -d 30"
 DO_PARALLEL_LOAD_TEST ?= 1
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
-build-R16:
-	(cd R16 && test -r openssl-1.0.2u.tar.gz || wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2u.tar.gz)
-	(cd R16 && test -r OTP_R16B02_basho10.tar.gz || wget https://github.com/basho/otp/archive/refs/tags/OTP_R16B02_basho10.tar.gz)
-	(cd R16 && test -r autoconf-2.59.tar.bz2 || wget http://ftp.gnu.org/gnu/autoconf/autoconf-2.59.tar.bz2)
+clone := git -c advice.detachedHead=false clone --depth 1
+sources:
+	@(export F="openssl-1.0.2u.tar.gz" && \
+	 cd R16 && test -r $$F || wget https://www.openssl.org/source/old/1.0.2/$$F)
+	@(export F="autoconf-2.59.tar.bz2" && \
+	 cd R16 && test -r $$F || wget http://ftp.gnu.org/gnu/autoconf/$$F)
+	@(export F="OTP_R16B02_basho10.tar.gz" && \
+	 cd R16 && test -r $$F || wget https://github.com/basho/otp/archive/refs/tags/$$F)
+
+	@(test -d riak/riak-${RIAK_VSN} || \
+	  ${clone} -b riak-${RIAK_VSN} https://github.com/basho/riak riak/riak-${RIAK_VSN})
+	@(test -d riak_cs/riak_cs-${RCS_VSN} || \
+	  ${clone} -b ${RCS_VSN} \
+	  https://github.com/TI-Tokyo/riak_cs riak_cs/riak_cs-${RCS_VSN})
+	@(test -d stanchion/stanchion-${STANCHION_VSN} || \
+	  ${clone} -b ${STANCHION_VSN} \
+	  https://github.com/TI-Tokyo/stanchion stanchion/stanchion-${STANCHION_VSN})
+	@(test -d riak_cs_control/riak_cs_control-${RCSC_VSN} || \
+	  ${clone} -b ${RCSC_VSN} https://github.com/TI-Tokyo/riak_cs_control riak_cs_control/riak_cs_control-${RCSC_VSN})
+
+R16:
 	(cd R16 && docker build --tag erlang:R16 .)
 
-build:
-	@COMPOSE_FILE=docker-compose-scalable-build.yml \
+build: sources
+	@COMPOSE_FILE=docker-compose-build.yml \
 	 RIAK_VSN=$(RIAK_VSN) \
-	 RIAK_CS_VSN=$(RIAK_CS_VSN) \
+	 RCS_VSN=$(RCS_VSN) \
+	 RCSC_VSN=$(RCSC_VSN) \
 	 STANCHION_VSN=$(STANCHION_VSN) \
-	 RIAK_CS_CONTROL_VSN=$(RIAK_CS_CONTROL_VSN) \
 	 RIAK_DOCKERFILE=$(RIAK_DOCKERFILE) \
-	 RIAK_CS_DOCKERFILE=$(RIAK_CS_DOCKERFILE) \
+	 RCS_DOCKERFILE=$(RCS_DOCKERFILE) \
+	 RCSC_DOCKERFILE=$(RCSC_DOCKERFILE) \
 	 STANCHION_DOCKERFILE=$(STANCHION_DOCKERFILE) \
-	 RIAK_CS_CONTROL_DOCKERFILE=$(RIAK_CS_CONTROL_DOCKERFILE) \
 	 docker-compose build \
 	    --build-arg RIAK_VSN=$(RIAK_VSN) \
-	    --build-arg RIAK_CS_VSN=$(RIAK_CS_VSN) \
-	    --build-arg STANCHION_VSN=$(STANCHION_VSN) \
-	    --build-arg RIAK_CS_CONTROL_VSN=$(RIAK_CS_CONTROL_VSN)
+	    --build-arg RCS_VSN=$(RCS_VSN) \
+	    --build-arg RCSC_VSN=$(RCSC_VSN) \
+	    --build-arg STANCHION_VSN=$(STANCHION_VSN)
 
 start: build ensure-dirs
 	@docker swarm init >/dev/null 2>&1 || :
 	@echo
-	@echo =======================================================================
-	@echo Starting bundle with RIAK_VSN=$(RIAK_VSN) and RIAK_CS_VSN=$(RIAK_CS_VSN)
+	@echo "======================================================================="
+	@echo "Starting bundle with RIAK_VSN=$(RIAK_VSN) and RCS_VSN=$(RCS_VSN)"
 	@export \
 	 RIAK_VSN=$(RIAK_VSN) \
-	 RIAK_CS_VSN=$(RIAK_CS_VSN) \
+	 RCS_VSN=$(RCS_VSN) \
 	 STANCHION_VSN=$(STANCHION_VSN) \
-	 RIAK_CS_CONTROL_VSN=$(RIAK_CS_CONTROL_VSN) \
+	 RCSC_VSN=$(RCSC_VSN) \
 	 N_RIAK_NODES=$(N_RIAK_NODES) \
 	 N_RCS_NODES=$(N_RCS_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
-	 && docker stack deploy -c docker-compose-scalable-run.yml $(DOCKER_SERVICE_NAME) \
+	 && docker stack deploy -c docker-compose-run.yml $(DOCKER_SERVICE_NAME) \
 	 && ./stage-two.py \
 		$(DOCKER_SERVICE_NAME) \
 		$(N_RIAK_NODES) $(N_RCS_NODES)\
@@ -88,7 +105,7 @@ start: build ensure-dirs
 	        $(DO_PARALLEL_LOAD_TEST)
 
 stop:
-	@COMPOSE_FILE=docker-compose-scalable-run.yml \
+	@COMPOSE_FILE=docker-compose-run.yml \
 	    docker stack rm $(DOCKER_SERVICE_NAME)
 
 ensure-dirs:

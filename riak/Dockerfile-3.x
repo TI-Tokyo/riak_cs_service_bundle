@@ -1,17 +1,10 @@
-FROM debian:buster
-
-ARG RIAK_VSN=3.0.7
-
-FROM erlang:22.3.4.10 AS compile-image
+FROM erlang:22 AS compile-image
 ARG RIAK_VSN
 
 RUN apt-get update && apt-get install -y libpam0g-dev
 
-WORKDIR /usr/src
-ADD https://github.com/basho/riak/archive/refs/tags/riak-${RIAK_VSN}.tar.gz source.tar.gz
-RUN tar xzf source.tar.gz && rm source.tar.gz
-RUN mv riak-riak-${RIAK_VSN} r
-WORKDIR r
+ADD riak/riak-${RIAK_VSN} /usr/src/S
+WORKDIR /usr/src/S
 
 RUN ./rebar3 as rel release
 
@@ -20,7 +13,7 @@ ARG RIAK_VSN
 
 RUN apt-get update && apt-get -y install libssl1.1 logrotate sudo
 
-COPY --from=compile-image /usr/src/r/_build/rel/rel/riak /opt/riak
+COPY --from=compile-image /usr/src/S/_build/rel/rel/riak /opt/riak
 
 RUN sed -i \
     -e "s|storage_backend = bitcask|storage_backend = multi|" \

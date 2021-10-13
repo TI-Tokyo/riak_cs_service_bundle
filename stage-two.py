@@ -53,30 +53,36 @@ def configure_riak_nodes(nodes):
         ni = ni + 1
 
 def start_riak_nodes(nodes):
-    for n in nodes:
-        print("Starting Riak at node", n["ip"])
-        p = docker_exec_proc(n, ["/opt/riak/bin/riak", "start"])
-        if p.returncode != 0:
-            sys.exit("Failed to start riak node at %s: %s%s" % (n["ip"], p.stdout, p.stderr))
-    for n in nodes:
-        nodename = "riak@" + n["ip"]
-        print("Waiting for service riak_kv on node", n["ip"])
-        repeat = 10
-        while repeat > 0:
-            p = docker_exec_proc(n, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
-            if p.stdout == "riak_kv is up\n":
-                break
-            else:
-                time.sleep(1)
-                repeat = repeat-1
-        repeat = 10
-        while repeat > 0:
-            p = docker_exec_proc(n, ["/opt/riak/bin/riak", "admin", "ringready"])
-            if p.returncode == 0:
-                break
-            else:
-                time.sleep(1)
-                repeat = repeat-1
+    with multiprocessing.Pool(len(nodes)) as p:
+        p.starmap(start_riak_node, [(n,) for n in nodes])
+    with multiprocessing.Pool(len(nodes)) as p:
+        p.starmap(wait_for_services, [(n,) for n in nodes])
+
+def start_riak_node(node):
+    print("Starting Riak at node", node["ip"])
+    p = docker_exec_proc(node, ["/opt/riak/bin/riak", "start"])
+    if p.returncode != 0:
+        sys.exit("Failed to start riak node at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
+
+def wait_for_services(node):
+    nodename = "riak@" + node["ip"]
+    print("Waiting for service riak_kv on node", node["ip"])
+    repeat = 10
+    while repeat > 0:
+        p = docker_exec_proc(node, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
+        if p.stdout == "riak_kv is up\n":
+            break
+        else:
+            time.sleep(1)
+            repeat = repeat-1
+    repeat = 10
+    while repeat > 0:
+        p = docker_exec_proc(n, ["/opt/riak/bin/riak", "admin", "ringready"])
+        if p.returncode == 0:
+            break
+        else:
+            time.sleep(1)
+            repeat = repeat-1
 
 def which_riak_admin():
     vsn = os.getenv("RIAK_VSN")[0]
@@ -85,7 +91,7 @@ def which_riak_admin():
     if vsn == "3":
         return ["/opt/riak/bin/riak", "admin"]
 
-def join_riak_nodes(nodes):
+def join_riak_nodes(nodes, riak_topo):
     riak_admin = which_riak_admin()
     first = nodes[0]
     rest = nodes[1:]
@@ -311,8 +317,6 @@ def load_test(s3_benchmark_path, s3_benchmark_params, do_parallel, rcs_hosts, aw
     if s3_benchmark_path == "skip":
         print("Skipping load-test (set S3_BENCHMARK_PATH to a path to s3-benchmark executable to enable it)")
         return
-#    print("\nWaiting 20 sec for riak to settle")
-#    time.sleep(20)
     if do_parallel:
         with multiprocessing.Pool(len(rcs_hosts)) as p:
             p.starmap(load_test_on_node,
@@ -361,7 +365,7 @@ def main():
     configure_riak_nodes(riak_nodes)
     start_riak_nodes(riak_nodes)
     if len(riak_nodes) > 1:
-        join_riak_nodes(riak_nodes)
+        join_riak_nodes(riak_nodes, riak_topo = {"cluster1": "all"})
 
 
     preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_nodes[0])

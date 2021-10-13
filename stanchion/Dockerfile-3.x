@@ -1,24 +1,19 @@
 ARG STANCHION_VSN=3.0.0
 
-FROM erlang:22.3.4.10 AS compile-image
+FROM erlang:22 AS compile-image
 ARG STANCHION_VSN
 
 EXPOSE 8085
 
-WORKDIR /usr/src
-ADD https://github.com/TI-Tokyo/stanchion/archive/refs/tags/${STANCHION_VSN}.tar.gz source.tar.gz
-RUN tar xzf source.tar.gz
-RUN mv stanchion-${STANCHION_VSN} s
-WORKDIR s
-
+ADD stanchion/stanchion-${STANCHION_VSN} /usr/src/S
+WORKDIR /usr/src/S
 RUN ./rebar3 as rel release
-
 
 FROM debian:buster AS runtime-image
 
 RUN apt-get update && apt-get -y install libssl1.1
 
-COPY --from=compile-image /usr/src/s/_build/rel/rel/stanchion /opt/stanchion
+COPY --from=compile-image /usr/src/S/_build/rel/rel/stanchion /opt/stanchion
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

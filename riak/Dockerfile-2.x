@@ -1,17 +1,14 @@
-ARG RIAK_VSN=2.1.2
-
 FROM erlang:R16 AS compile-image
 ARG RIAK_VSN
 
 RUN apt-get install -y git wget g++ libpam0g-dev
 
-WORKDIR /usr/src
-RUN git clone -b riak-${RIAK_VSN} --depth 2 https://github.com/basho/riak
-WORKDIR riak
+ADD riak/riak-${RIAK_VSN} /usr/src/S
+WORKDIR /usr/src/S
 
 RUN make rel
 
-RUN mv /usr/src/riak/rel/riak /opt/riak
+RUN mv /usr/src/S/rel/riak /opt/riak
 
 RUN sed -i \
     -e "s|storage_backend = bitcask|storage_backend = multi|" \
