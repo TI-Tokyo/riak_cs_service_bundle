@@ -53,20 +53,30 @@ def configure_riak_nodes(nodes):
         ni = ni + 1
 
 def start_riak_nodes(nodes):
+    print("Starting Riak nodes:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(start_riak_node, [(n,) for n in nodes])
+        p.starmap(start_riak_node, [(nodes[i], i) for i in range(len(nodes))])
+    subprocess.run(['stty', 'sane'])
+    print()
+    print("Waiting for riak cluster to become ready:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(wait_for_services, [(n,) for n in nodes])
+        p.starmap(wait_for_services, [(nodes[i], i) for i in range(len(nodes))])
+    subprocess.run(['stty', 'sane'])
+    print()
 
-def start_riak_node(node):
-    print("Starting Riak at node", node["ip"])
+def start_riak_node(node, i):
+    time.sleep(0.5 * i)
     p = docker_exec_proc(node, ["/opt/riak/bin/riak", "start"])
     if p.returncode != 0:
+        if p.stdout == "Node is already running!\n":
+            print(" (%d)" % i, end = '', flush = True)
+            return
         sys.exit("Failed to start riak node at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
+    print(" [%d]" % i, end = '', flush = True)
 
-def wait_for_services(node):
+def wait_for_services(node, i):
     nodename = "riak@" + node["ip"]
-    print("Waiting for service riak_kv on node", node["ip"])
+    time.sleep(0.5 * i)
     repeat = 10
     while repeat > 0:
         p = docker_exec_proc(node, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
@@ -77,12 +87,13 @@ def wait_for_services(node):
             repeat = repeat-1
     repeat = 10
     while repeat > 0:
-        p = docker_exec_proc(n, ["/opt/riak/bin/riak", "admin", "ringready"])
+        p = docker_exec_proc(node, ["/opt/riak/bin/riak", "admin", "ringready"])
         if p.returncode == 0:
             break
         else:
             time.sleep(1)
             repeat = repeat-1
+    print(" [%d]" % i, end = '', flush = True)
 
 def which_riak_admin():
     vsn = os.getenv("RIAK_VSN")[0]
@@ -173,14 +184,20 @@ def finalize_rcs_config(rcs_nodes, admin_key_id, auth_v4):
 
 
 def start_rcs_nodes(nodes, do_restart = False):
-    for n in nodes:
-        if do_restart:
-            print("Stopping Riak CS at node", n["ip"])
-            p = docker_exec_proc(n, ["/opt/riak-cs/bin/riak-cs", "stop"])
-        print("Starting Riak CS at node", n["ip"])
-        p = docker_exec_proc(n, ["/opt/riak-cs/bin/riak-cs", "start"])
-        if p.returncode != 0:
-            sys.exit("Failed to start Riak CS at %s: %s%s" % (n["ip"], p.stdout, p.stderr))
+    print("Starting Riak CS nodes:", end = '')
+    with multiprocessing.Pool(len(nodes)) as p:
+        p.starmap(start_rcs_node, [(nodes[i], i, do_restart) for i in range(len(nodes))])
+    subprocess.run(['stty', 'sane'])
+    print()
+
+def start_rcs_node(node, i, do_restart):
+    if do_restart:
+        p = docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "stop"])
+        print(" (%d)" % i, end = '', flush = True)
+    p = docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "start"])
+    if p.returncode != 0:
+        sys.exit("Failed to start Riak CS at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
+    print(" [%d]" % i, end = '', flush = True)
 
 
 
@@ -286,8 +303,8 @@ def create_user(host, name, email):
                                          body = json.dumps({"email": email, "name": name}))
             conn.close()
             return json.loads(content)
-        except ConnectionRefusedError:
-            time.sleep(2)
+        except:
+            time.sleep(1)
             retries = retries - 1
 
 def get_admin_user(host):
@@ -378,7 +395,7 @@ def main():
         admin_email = "admin@tussle.org"
         admin_name = "admin"
         admin_user = create_user(rcs_ext_ips[0], admin_name, admin_email)
-        print("Admin user (%s <%s>) creds:\n  key_id: %s\n  key_secret: %s\n"
+        print("\nAdmin user (%s <%s>) creds:\n  key_id: %s\n  key_secret: %s\n"
               % (admin_name, admin_email,
                  admin_user["key_id"], admin_user["key_secret"]))
     else:
@@ -386,7 +403,7 @@ def main():
         start_rcs_nodes([rcs_nodes[0]], do_restart = True)
         admin_user = get_admin_user(rcs_ext_ips[0])
         restore_rcs_advanced_config(rcs_nodes[0])
-        print("Previously created admin user (%s <%s>) creds:\n  key_id: %s\n  key_secret: %s\n"
+        print("\nPreviously created admin user (%s <%s>) creds:\n  key_id: %s\n  key_secret: %s\n"
               % (admin_user["name"], admin_user["email"],
                  admin_user["key_id"], admin_user["key_secret"]))
 
@@ -397,13 +414,13 @@ def main():
 
     start_rcs_control(rcsc_nodes[0], rcs_nodes[0]["ip"], admin_user)
 
-    print("Riak external addresses:")
+    print("\nRiak external addresses:")
     for ip in riak_ext_ips:
         print("  %s" % ip)
-    print("Riak CS external addresses:")
+    print("\nRiak CS external addresses:")
     for ip in rcs_ext_ips:
         print("  %s" % ip)
-    print("Riak CS Control external address:\n  %s" % rcsc_ext_ip)
+    print("\nRiak CS Control external address:\n  %s" % rcsc_ext_ip)
 
     load_test(s3_benchmark_path, s3_benchmark_params,
               do_parallel_load_test, rcs_ext_ips,

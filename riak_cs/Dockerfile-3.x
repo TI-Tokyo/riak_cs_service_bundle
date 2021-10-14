@@ -3,10 +3,10 @@ ARG RCS_VSN=3.0.0
 FROM erlang:22 AS compile-image
 ARG RCS_VSN
 
+EXPOSE 8080 8000
+
 ADD riak_cs/riak_cs-${RCS_VSN} /usr/src/S
 WORKDIR /usr/src/S
-
-EXPOSE 8080 8000
 
 RUN ./rebar3 as rel release
 

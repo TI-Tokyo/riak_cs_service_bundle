@@ -1,6 +1,8 @@
 FROM erlang:R16 AS compile-image
 ARG RCS_VSN
 
+EXPOSE 8080 8000
+
 RUN apt-get install -y git wget g++ libpam0g-dev
 
 ADD riak_cs/riak_cs-${RCS_VSN} /usr/src/S
@@ -18,7 +20,5 @@ RUN mv /usr/src/S/rel/riak-cs /opt/riak-cs
 # riak-cs.conf.  It is unfortunate we have to plug a sleep loop for
 # the process being monitored by docker, but that's one practical
 # solution I have in mind now.
-
-EXPOSE 8080 8000
 
 CMD while :; do sleep 1m; done

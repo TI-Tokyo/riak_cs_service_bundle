@@ -23,11 +23,12 @@ External addresses of Riak CS nodes and the node running Riak CS
 Control will be printed at the end of `make start`.  Also, an admin user
 will be created whose credentials can be copied and used in your s3 client.
 
-The entire stack can be stopped with `make stop`.  Note that after
-stopping, docker will not complete the tear-down of resources
-immediately, sometimes causing a subsequent start to fail (the remedy
-is usually to give it some time, until `docker service ls` no longer
-lists services named rcs-tussle-one_*).
+The entire stack can be stopped with `make stop`.  Note that the
+underlying command, `docker stack rm`, does not complete the tear-down
+of resources immediately when it returns to prompt, sometimes causing
+a subsequent start to fail (the remedy is usually to give it some
+time, until `docker service ls` no longer lists services named
+"rcs-tussle-one_*").
 
 ### Older versions of riak and riak_cs
 

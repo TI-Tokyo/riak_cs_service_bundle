@@ -2,7 +2,7 @@
 
 export S3_BENCHMARK_PATH="../s3-benchmark/s3-benchmark"
 
-for rv in 2.2.6 2.9.8 3.0.8; do
+for rv in 2.2.6 2.9.10 3.0.8; do
     for rcv in 2.1.3pre1 3.0.0pre8; do
         if [ $rcv = "2.1.3pre1" ]; then
             sv="2.1.2"

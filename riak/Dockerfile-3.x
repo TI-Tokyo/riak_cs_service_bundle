@@ -1,6 +1,8 @@
 FROM erlang:22 AS compile-image
 ARG RIAK_VSN
 
+EXPOSE 8087 8098 9080
+
 RUN apt-get update && apt-get install -y libpam0g-dev
 
 ADD riak/riak-${RIAK_VSN} /usr/src/S
@@ -34,8 +36,6 @@ RUN sed -i \
      ]} \
      ].|" \
      /opt/riak/etc/advanced.config
-
-EXPOSE 8087 8098 9080
 
 RUN echo "riak soft nofile 65536\nriak hard nofile 65536\n" >>/etc/security/limits.conf
 
