@@ -55,17 +55,16 @@ def configure_riak_nodes(nodes):
 def start_riak_nodes(nodes):
     print("Starting Riak nodes:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(start_riak_node, [(nodes[i], i) for i in range(len(nodes))])
+        p.starmap(start_riak_node, [(nodes[i], i+1) for i in range(len(nodes))])
     subprocess.run(['stty', 'sane'])
     print()
     print("Waiting for riak cluster to become ready:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(wait_for_services, [(nodes[i], i) for i in range(len(nodes))])
+        p.starmap(wait_for_services, [(nodes[i], i+1) for i in range(len(nodes))])
     subprocess.run(['stty', 'sane'])
     print()
 
 def start_riak_node(node, i):
-    time.sleep(0.5 * i)
     p = docker_exec_proc(node, ["/opt/riak/bin/riak", "start"])
     if p.returncode != 0:
         if p.stdout == "Node is already running!\n":
@@ -76,7 +75,6 @@ def start_riak_node(node, i):
 
 def wait_for_services(node, i):
     nodename = "riak@" + node["ip"]
-    time.sleep(0.5 * i)
     repeat = 10
     while repeat > 0:
         p = docker_exec_proc(node, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
@@ -112,9 +110,9 @@ def join_riak_nodes_custom(all_nodes, topo):
     riak_admin = which_riak_admin()
     for cluster in topo:
         clustering_node_ids = topo[cluster]
-        clustering_nodes = [all_nodes[n] for n in clustering_node_ids]
-        first = all_nodes[clustering_node_ids[0]]
-        rest = [all_nodes[ni] for ni in clustering_node_ids[1:]]
+        clustering_nodes = [all_nodes[n-1] for n in clustering_node_ids]
+        first = all_nodes[clustering_node_ids[0]-1]
+        rest = [all_nodes[ni-1] for ni in clustering_node_ids[1:]]
         print("Joining nodes %s to %s" % ([n["ip"] for n in rest], first["ip"]))
         for n in rest:
             p = docker_exec_proc(n, riak_admin + ["cluster", "join", "riak@" + first["ip"]])
@@ -138,24 +136,25 @@ def join_riak_nodes_custom(all_nodes, topo):
 # =======================
 
 def preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_node, topo):
-    n = 0
-    m = 0
-    print("Configuring Riak CS nodes")
+    n = 1
+    print("Configuring Riak CS nodes:", end = '')
     for rn in rcs_nodes:
         nodename = "riak_cs@" + rn["ip"]
+        if str(n) not in topo.keys():
+            continue
+        m = topo[str(n)]
+        print(" %d->%d" % (n, m), end = '')
         p = docker_exec_proc(rn, ["sed", "-i", "-E",
                                   "-e", "s|nodename = .+|nodename = %s|" % nodename,
                                   "-e", "s|listener = .+|listener = 0.0.0.0:8080|",
-                                  "-e", "s|riak_host = .+|riak_host = %s:8087|" % riak_nodes[m]["ip"],
+                                  "-e", "s|riak_host = .+|riak_host = %s:8087|" % riak_nodes[m-1]["ip"],
                                   "-e", "s|stanchion_host = .+|stanchion_host = %s:8085|" % stanchion_node["ip"],
                                   "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
                                   "/opt/riak-cs/etc/riak-cs.conf"])
         if p.returncode != 0:
             sys.exit("Failed to modify riak-cs.conf node at %s: %s%s" % (rn["ip"], p.stdout, p.stderr))
         n = n + 1
-        m = m + 1
-        if m > len(riak_nodes):
-            m = 0
+    print()
 
 def enable_anon_user_creation(node):
     print("Enabling anonymous user creation on node", node["ip"])
@@ -193,7 +192,7 @@ def finalize_rcs_config(rcs_nodes, admin_key_id, auth_v4):
 def start_rcs_nodes(nodes, do_restart = False):
     print("Starting Riak CS nodes:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(start_rcs_node, [(nodes[i], i, do_restart) for i in range(len(nodes))])
+        p.starmap(start_rcs_node, [(nodes[i], i+1, do_restart) for i in range(len(nodes))])
     subprocess.run(['stty', 'sane'])
     print()
 
@@ -258,7 +257,6 @@ def start_rcs_control(node, rcs_ip, user):
     print(p.stdout, p.stderr)
 
 
-
 def main():
     tussle_name = sys.argv[1]
     required_riak_nodes = int(sys.argv[2])
@@ -266,17 +264,6 @@ def main():
     auth_v4 = sys.argv[4]
     riak_topo_from = sys.argv[5]
     rcs_topo_from = sys.argv[6]
-
-    try:
-        with open(riak_topo_from) as f:
-            riak_topo = json.load(f)
-    except:
-        riak_topo = {"cluster1": "all"}
-    try:
-        with open(rcs_topo_from) as f:
-            rcs_topo = json.load(f)
-    except:
-        rcs_topo = {"pattern": "sequential"}
 
     print("Discovering nodes")
     riak_nodes = discover_nodes(tussle_name, "riak", required_riak_nodes)
@@ -287,6 +274,17 @@ def main():
     print("  stanchion node:", stanchion_nodes[0]["ip"])
     rcsc_nodes      = discover_nodes(tussle_name, "riak_cs_control", 1)
     print("  riak_cs_control node:", rcsc_nodes[0]["ip"])
+
+    try:
+        with open(riak_topo_from) as f:
+            riak_topo = json.load(f)
+    except:
+        riak_topo = {"cluster1": list(range(1, len(riak_nodes)))}
+    try:
+        with open(rcs_topo_from) as f:
+            rcs_topo = json.load(f)
+    except:
+        rcs_topo = {str(x):wrap(x, len(riak_nodes)) for x in range(1, 1+len(rcs_nodes))}
 
     riak_ext_ips = [find_external_ips(c["container"]) for c in riak_nodes]
     rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
@@ -330,13 +328,22 @@ def main():
 
     start_rcs_control(rcsc_nodes[0], rcs_nodes[0]["ip"], admin_user)
 
-    print("\nRiak external addresses:")
-    for ip in riak_ext_ips:
-        print("  %s" % ip)
-    print("\nRiak CS external addresses:")
-    for ip in rcs_ext_ips:
-        print("  %s" % ip)
+    print("\nRiak clusters and addresses:")
+    for c in riak_topo.keys():
+        print("  %s:" % c)
+        for i in riak_topo[c]:
+            print("    %s (%s)" % (riak_ext_ips[i-1], riak_nodes[i-1]["ip"]))
+    print("\nRiak CS external addresses and connections:")
+    for i in rcs_topo.keys():
+        print("  %s (%s) -> %s" % (rcs_ext_ips[int(i)-1], rcs_nodes[int(i)-1]["ip"], riak_ext_ips[rcs_topo[i]-1]))
     print("\nRiak CS Control external address:\n  %s" % rcsc_ext_ip)
+
+def wrap(x, X):
+    if x > X:
+        return wrap(x - X, X)
+    else:
+        return x
+
 
 if __name__ == "__main__":
     main()

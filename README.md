@@ -18,12 +18,7 @@ External addresses of Riak CS nodes and the node running Riak CS
 Control will be printed at the end of `make start`.  Also, an admin user
 will be created whose credentials can be copied and used in your s3 client.
 
-The entire stack can be stopped with `make stop`.  Note that the
-underlying command, `docker stack rm`, does not complete the tear-down
-of resources immediately when it returns to prompt, sometimes causing
-a subsequent start to fail (the remedy is usually to give it some
-time, until `docker service ls` no longer lists services named
-"rcs-tussle-one_*").
+The entire stack can be stopped with `make stop`.
 
 ### Older versions of riak and riak_cs
 
@@ -40,7 +35,7 @@ defines the number of RIak CS nodes (with each _n_'th connected to
 _n_'th Riak node, wrapping if the number of the latter is greater).
 
 Alternative topologies can be specified (see examples in
-"riak-topo.json" and "rcs_topo.json".
+"riak-topo.json" and "rcs-topo.json".
 
 ## Persisting state
 

@@ -37,8 +37,8 @@ RIAK_PLATFORM_DIR ?= $(shell pwd)/p
 N_RIAK_NODES     ?= 3
 N_RCS_NODES      ?= 2
 RCS_AUTH_V4      ?= on
-RIAK_TOPO        ?= "riak_topo.json"
-RCS_TOPO         ?= "rcs_topo.json"
+RIAK_TOPO        ?= "riak-topo.json"
+RCS_TOPO         ?= "rcs-topo.json"
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
@@ -108,9 +108,11 @@ start-quick:
 stop:
 	@COMPOSE_FILE=docker-compose-run.yml \
 	    docker stack rm $(DOCKER_SERVICE_NAME)
+	@echo "Waiting until containers are stopped.."
+	@docker container ls --filter "name=rcs-tussle-one" --format='{{.Names}}' | xargs docker wait >/dev/null
 
 ensure-dirs:
 	@mkdir -p $(RIAK_PLATFORM_DIR){/data,/log}
 
-clean:
+clean: stop
 	@sudo rm -rf $(RIAK_PLATFORM_DIR)
