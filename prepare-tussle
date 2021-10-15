@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import json, sys, os, time, subprocess, httplib2, multiprocessing
-
+import json, sys, os, time, subprocess, multiprocessing
+from bundle_lib import discover_nodes, find_external_ips, docker_exec_proc, create_user, get_admin_user
 
 # riak
 # =======================
@@ -102,35 +102,42 @@ def which_riak_admin():
     if vsn == "3":
         return ["/opt/riak/bin/riak", "admin"]
 
-def join_riak_nodes(nodes, riak_topo):
+def join_riak_nodes(nodes, topo):
+    if topo["cluster1"] == "all":
+        join_riak_nodes_custom(nodes, {"cluster1": range(len(nodes))})
+    else:
+        join_riak_nodes_custom(nodes, topo)
+
+def join_riak_nodes_custom(all_nodes, topo):
     riak_admin = which_riak_admin()
-    first = nodes[0]
-    rest = nodes[1:]
-    print("Joining nodes %s to %s" % ([n["ip"] for n in rest], first["ip"]))
-    for n in rest:
-        p = docker_exec_proc(n, riak_admin + ["cluster", "join", "riak@" + first["ip"]])
-        if p.returncode != 0:
-            sys.exit("Failed to execute a join command on node %s (%s): %s%s" %
-                     (n["container"], n["ip"], p.stdout, p.stderr))
-        print(p.stdout)
-    print("Below are the cluster changes to be committed:")
-    for n in nodes:
-        p = docker_exec_proc(n, riak_admin + ["cluster", "plan"])
-        if p.returncode != 0:
-            sys.exit("Failed to execute a join command on node %s (%s): %s%s" % (n["container"], n["ip"], p.stdout, p.stderr))
-        print(p.stdout)
-    print("Committing changes now")
-    for n in rest:
-        p = docker_exec_proc(n, riak_admin + ["cluster", "commit"])
-        if p.returncode != 0:
-            sys.exit("Failed to execute a join command on node %s (%s): %s%s" % (n["container"], n["ip"], p.stdout, p.stderr))
-        print(p.stdout)
+    for cluster in topo:
+        clustering_node_ids = topo[cluster]
+        clustering_nodes = [all_nodes[n] for n in clustering_node_ids]
+        first = all_nodes[clustering_node_ids[0]]
+        rest = [all_nodes[ni] for ni in clustering_node_ids[1:]]
+        print("Joining nodes %s to %s" % ([n["ip"] for n in rest], first["ip"]))
+        for n in rest:
+            p = docker_exec_proc(n, riak_admin + ["cluster", "join", "riak@" + first["ip"]])
+            if p.returncode != 0:
+                sys.exit("Failed to execute a join command on node %s (%s): %s%s" %
+                         (n["container"], n["ip"], p.stdout, p.stderr))
+            print(p.stdout)
+        for n in clustering_nodes:
+            p = docker_exec_proc(n, riak_admin + ["cluster", "plan"])
+            if p.returncode != 0:
+                sys.exit("Failed to execute a join command on node %s (%s): %s%s" % (n["container"], n["ip"], p.stdout, p.stderr))
+            print(p.stdout)
+        for n in rest:
+            p = docker_exec_proc(n, riak_admin + ["cluster", "commit"])
+            if p.returncode != 0:
+                sys.exit("Failed to execute a join command on node %s (%s): %s%s" % (n["container"], n["ip"], p.stdout, p.stderr))
+            print(p.stdout)
 
 
 # riak_cs
 # =======================
 
-def preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_node):
+def preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_node, topo):
     n = 0
     m = 0
     print("Configuring Riak CS nodes")
@@ -252,126 +259,34 @@ def start_rcs_control(node, rcs_ip, user):
 
 
 
-# helper functions
-# ========================
-
-def discover_nodes(tussle_name, pattern, required_nodes):
-    print("Discovering", pattern, "nodes..")
-    network = "%s_net0" % (tussle_name)
-    args = ["docker", "network", "inspect", network]
-    while True:
-        p = subprocess.run(args,
-                           capture_output = True,
-                           encoding = "utf8")
-        if p.returncode != 0:
-            sys.exit("Failed to discover riak nodes in %s_net0: %s\n%s" % (tussle_name, p.stdout, p.stderr))
-        res = [{"ip": e["IPv4Address"].split("/")[0],
-                "container": e["Name"]}
-               for e in json.loads(p.stdout)[0]["Containers"].values()
-               if tussle_name + "_" + pattern + "." in e["Name"]]
-        if len(res) != required_nodes:
-            time.sleep(1)
-        else:
-            print("Discovered these", pattern, "nodes:", [n["ip"] for n in res])
-            return res
-
-def find_external_ips(container):
-    p = subprocess.run(args = ["docker", "container", "inspect", container],
-                       capture_output = True,
-                       encoding = 'utf8')
-    cid = json.loads(p.stdout)[0]["Id"]
-    p = subprocess.run(args = ["docker", "network", "inspect", "docker_gwbridge"],
-                       capture_output = True,
-                       encoding = 'utf8')
-    ip = json.loads(p.stdout)[0]["Containers"][cid]["IPv4Address"].split("/")[0]
-    return ip
-
-
-def docker_exec_proc(n, cmd):
-    return subprocess.run(args = ["docker", "exec", "-it", n["container"]] + cmd,
-                          capture_output = True,
-                          encoding = "utf8")
-
-def create_user(host, name, email):
-    url = 'http://%s:%d/riak-cs/user' % (host, 8080)
-    conn = httplib2.Http()
-    retries = 10
-    while retries > 0:
-        try:
-            resp, content = conn.request(url, "POST",
-                                         headers = {"Content-Type": "application/json"},
-                                         body = json.dumps({"email": email, "name": name}))
-            conn.close()
-            return json.loads(content)
-        except:
-            time.sleep(1)
-            retries = retries - 1
-
-def get_admin_user(host):
-    url = 'http://%s:%d/riak-cs/users' % (host, 8080)
-    print("Getting existing admin from", host)
-    conn = httplib2.Http()
-    retries = 10
-    while retries > 0:
-        try:
-            resp, content = conn.request(url, "GET",
-                                         headers = {"Accept": "application/json"})
-            conn.close()
-            entries = [s for s in content.splitlines() if str(s).find("admin") != -1]
-            if len(entries) == 0:
-                time.sleep(2)
-                retries = retries - 1
-            else:
-                if len(entries) > 1:
-                    print("Multiple admin user records found, let's choose the first")
-                return json.loads(entries[0])[0]
-        except ConnectionRefusedError:
-            time.sleep(2)
-            retries = retries - 1
-
-
-def load_test(s3_benchmark_path, s3_benchmark_params, do_parallel, rcs_hosts, aws_key_id, aws_key_secret):
-    if s3_benchmark_path == "skip":
-        print("Skipping load-test (set S3_BENCHMARK_PATH to a path to s3-benchmark executable to enable it)")
-        return
-    if do_parallel:
-        with multiprocessing.Pool(len(rcs_hosts)) as p:
-            p.starmap(load_test_on_node,
-                      [(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
-                       for h in rcs_hosts])
-    else:
-        load_test_on_node(rcs_hosts[0], s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
-
-
-def load_test_on_node(rcs_host, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret):
-    print("Running load test (%s %s) with Riak CS at %s:" % (s3_benchmark_path, s3_benchmark_params, rcs_host))
-    p = subprocess.run(env = {"http_proxy": "http://" + rcs_host + ":8080"},
-                       args = [s3_benchmark_path, "-a", aws_key_id, "-s", aws_key_secret] + s3_benchmark_params.split(" "),
-                       capture_output = True,
-                       encoding = 'utf8')
-    print("load test completed with code %d:\n%s\n%s" % (p.returncode, p.stderr, p.stdout))
-    with open("load-test-report", mode="a") as f:
-        print("""
--------------------------------------
-RIAK_VSN=%s RIAK_CS_VSN=%s node=%s
-%s
-""" % (os.getenv("RIAK_VSN"), os.getenv("RIAK_CS_VSN"), rcs_host, p.stdout),
-              file=f)
-
-
 def main():
     tussle_name = sys.argv[1]
     required_riak_nodes = int(sys.argv[2])
     required_rcs_nodes = int(sys.argv[3])
     auth_v4 = sys.argv[4]
-    s3_benchmark_path = sys.argv[5]
-    s3_benchmark_params = sys.argv[6]
-    do_parallel_load_test = int(sys.argv[7])
+    riak_topo_from = sys.argv[5]
+    rcs_topo_from = sys.argv[6]
 
-    riak_nodes      = discover_nodes(tussle_name, "riak", required_riak_nodes)
-    rcs_nodes       = discover_nodes(tussle_name, "riak_cs", required_rcs_nodes)
+    try:
+        with open(riak_topo_from) as f:
+            riak_topo = json.load(f)
+    except:
+        riak_topo = {"cluster1": "all"}
+    try:
+        with open(rcs_topo_from) as f:
+            rcs_topo = json.load(f)
+    except:
+        rcs_topo = {"pattern": "sequential"}
+
+    print("Discovering nodes")
+    riak_nodes = discover_nodes(tussle_name, "riak", required_riak_nodes)
+    print("  riak nodes:", [n["ip"] for n in riak_nodes])
+    rcs_nodes = discover_nodes(tussle_name, "riak_cs", required_rcs_nodes)
+    print("  riak_cs nodes:", [n["ip"] for n in rcs_nodes])
     stanchion_nodes = discover_nodes(tussle_name, "stanchion", 1)
+    print("  stanchion node:", stanchion_nodes[0]["ip"])
     rcsc_nodes      = discover_nodes(tussle_name, "riak_cs_control", 1)
+    print("  riak_cs_control node:", rcsc_nodes[0]["ip"])
 
     riak_ext_ips = [find_external_ips(c["container"]) for c in riak_nodes]
     rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
@@ -382,10 +297,9 @@ def main():
     configure_riak_nodes(riak_nodes)
     start_riak_nodes(riak_nodes)
     if len(riak_nodes) > 1:
-        join_riak_nodes(riak_nodes, riak_topo = {"cluster1": "all"})
+        join_riak_nodes(riak_nodes, riak_topo)
 
-
-    preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_nodes[0])
+    preconfigure_rcs_nodes(rcs_nodes, riak_nodes, stanchion_nodes[0], rcs_topo)
     preconfigure_stanchion_node(stanchion_nodes[0], riak_nodes)
     start_stanchion_node(stanchion_nodes[0])
 
@@ -402,6 +316,8 @@ def main():
         enable_rcs_auth_bypass(rcs_nodes[0])
         start_rcs_nodes([rcs_nodes[0]], do_restart = True)
         admin_user = get_admin_user(rcs_ext_ips[0])
+        if not admin_user:
+            sys.exit("Riak has data but a Riak CS admin user record was found. Try make clean and make start again?")
         restore_rcs_advanced_config(rcs_nodes[0])
         print("\nPreviously created admin user (%s <%s>) creds:\n  key_id: %s\n  key_secret: %s\n"
               % (admin_user["name"], admin_user["email"],
@@ -421,10 +337,6 @@ def main():
     for ip in rcs_ext_ips:
         print("  %s" % ip)
     print("\nRiak CS Control external address:\n  %s" % rcsc_ext_ip)
-
-    load_test(s3_benchmark_path, s3_benchmark_params,
-              do_parallel_load_test, rcs_ext_ips,
-              admin_user["key_id"], admin_user["key_secret"])
 
 if __name__ == "__main__":
     main()

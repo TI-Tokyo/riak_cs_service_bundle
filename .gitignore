@@ -7,3 +7,5 @@ riak_cs_control/riak_cs_control-*/
 stanchion/stanchion-*/
 benchmark.log
 load-test-report
+
+__pycache__/

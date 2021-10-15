@@ -1,7 +1,5 @@
 #!/bin/bash
 
-export S3_BENCHMARK_PATH="../s3-benchmark/s3-benchmark"
-
 for rv in 2.2.6 2.9.10 3.0.8; do
     for rcv in 2.1.3pre1 3.0.0pre8; do
         if [ $rcv = "2.1.3pre1" ]; then
@@ -10,6 +8,7 @@ for rv in 2.2.6 2.9.10 3.0.8; do
             sv=$rcv
         fi
         RIAK_VSN=$rv RCS_VSN=$rcv STANCHION_VSN=$sv make start
+        ./load-test
         make stop
         sleep 10
         make clean

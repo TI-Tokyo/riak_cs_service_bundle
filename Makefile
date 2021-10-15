@@ -1,4 +1,4 @@
-.PHONY: ensure-dirs sources R16 build start stop clean
+.PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
 RIAK_VSN       	    ?= 3.0.8
 RCS_VSN    	    ?= 3.0.0pre8
@@ -37,10 +37,8 @@ RIAK_PLATFORM_DIR ?= $(shell pwd)/p
 N_RIAK_NODES     ?= 3
 N_RCS_NODES      ?= 2
 RCS_AUTH_V4      ?= on
-
-S3_BENCHMARK_PATH   ?= skip
-S3_BENCHMARK_PARAMS ?= "-t 5 -l 10 -d 30"
-DO_PARALLEL_LOAD_TEST ?= 1
+RIAK_TOPO        ?= "riak_topo.json"
+RCS_TOPO         ?= "rcs_topo.json"
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
@@ -83,11 +81,14 @@ build: sources
 	    --build-arg RCSC_VSN=$(RCSC_VSN) \
 	    --build-arg STANCHION_VSN=$(STANCHION_VSN)
 
-start: build ensure-dirs
+start: build ensure-dirs start-quick
+
+start-quick:
 	@docker swarm init >/dev/null 2>&1 || :
 	@echo
-	@echo "======================================================================="
 	@echo "Starting bundle with RIAK_VSN=$(RIAK_VSN) and RCS_VSN=$(RCS_VSN)"
+	@echo "======================================================================="
+	@echo
 	@export \
 	 RIAK_VSN=$(RIAK_VSN) \
 	 RCS_VSN=$(RCS_VSN) \
@@ -97,12 +98,12 @@ start: build ensure-dirs
 	 N_RCS_NODES=$(N_RCS_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
 	 && docker stack deploy -c docker-compose-run.yml $(DOCKER_SERVICE_NAME) \
-	 && ./stage-two.py \
+	 && ./prepare-tussle \
 		$(DOCKER_SERVICE_NAME) \
 		$(N_RIAK_NODES) $(N_RCS_NODES)\
 		$(RCS_AUTH_V4) \
-	        $(S3_BENCHMARK_PATH) $(S3_BENCHMARK_PARAMS) \
-	        $(DO_PARALLEL_LOAD_TEST)
+	        $(RIAK_TOPO) \
+	        $(RCS_TOPO)
 
 stop:
 	@COMPOSE_FILE=docker-compose-run.yml \

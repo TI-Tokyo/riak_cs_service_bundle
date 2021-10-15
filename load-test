@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+
+import argparse, subprocess, multiprocessing
+from bundle_lib import discover_nodes, find_external_ips, get_admin_user
+
+def load_test(s3_benchmark_path, s3_benchmark_params, do_parallel, rcs_hosts, aws_key_id, aws_key_secret):
+    if do_parallel:
+        with multiprocessing.Pool(len(rcs_hosts)) as p:
+            p.starmap(load_test_on_node,
+                      [(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
+                       for h in rcs_hosts])
+    else:
+        load_test_on_node(rcs_hosts[0], s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
+
+
+def load_test_on_node(rcs_host, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret):
+    print("Running load test (%s %s) with Riak CS at %s:" % (s3_benchmark_path, s3_benchmark_params, rcs_host))
+    p = subprocess.run(env = {"http_proxy": "http://" + rcs_host + ":8080"},
+                       args = [s3_benchmark_path, "-a", aws_key_id, "-s", aws_key_secret] + s3_benchmark_params.split(" "),
+                       capture_output = True,
+                       encoding = 'utf8')
+    print("load test completed with code %d:\n%s\n%s" % (p.returncode, p.stderr, p.stdout))
+    with open("load-test-report", mode="a") as f:
+        print("""
+-------------------------------------
+RIAK_VSN=%s RIAK_CS_VSN=%s node=%s
+%s
+""" % (os.getenv("RIAK_VSN"), os.getenv("RIAK_CS_VSN"), rcs_host, p.stdout),
+              file=f)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-x", "--executable", default = "../s3-benchmark/s3-benchmark", help = "path to benchmark executable")
+    parser.add_argument("-O", "--options", default = "-t 5 -l 10 -d 30", help = "options to benchmark program")
+    parser.add_argument("-p", "--parallel", action = "store_false", help = "run benchmarks against all riak_cs nodes in parallel")
+    parser.add_argument("-n", "--docker_service_name", default = "rcs-tussle-one", help = "docker service name")
+    parser.add_argument("-k", "--key_id", required = True, help = "key id")
+    parser.add_argument("-s", "--key_secret", required = True, help = "key secret")
+    args = parser.parse_args()
+
+    tussle_name = args.docker_service_name
+
+    rcs_nodes = discover_nodes(tussle_name, "riak_cs")
+    rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
+
+    load_test(args.executable, args.options,
+              args.parallel, rcs_ext_ips,
+              args.key_id, args.key_secret)
+
+if __name__ == "__main__":
+    main()
