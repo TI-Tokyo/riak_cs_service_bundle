@@ -35,6 +35,29 @@ def get_one_rcs_node_id_for_riak_cluster(cluster, rcs_topo):
             return int(n)
 
 
+def expand_to_all_rcs_nodes(creds, rcs_nodes):
+    riak_topo, rcs_topo = get_topologies()
+    creds2 = creds.copy()
+    i = 1
+    for rn in rcs_nodes:
+        if rn["ip"] not in creds.keys():
+            creds2.update(creds_of_rcs_node_with_same_cluster(
+                creds2, rn["ip"], i, rcs_nodes, riak_topo, rcs_topo))
+        i = i + 1
+    return creds2
+
+def creds_of_rcs_node_with_same_cluster(creds, rn_ip, i, rcs_nodes, riak_topo, rcs_topo):
+    j = 1
+    for nj in rcs_nodes:
+        if cluster_of(i, riak_topo, rcs_topo) == cluster_of(j, riak_topo, rcs_topo):
+            return {rn_ip: creds[nj["ip"]]}
+        j = j + 1
+
+def cluster_of(ni, riak_topo, rcs_topo):
+    for c, cnn in riak_topo.items():
+        if rcs_topo[str(ni)] in cnn:
+            return c
+
 def discover_nodes(tussle_name, pattern, required_nodes = 0):
     network = "%s_net0" % (tussle_name)
     args = ["docker", "network", "inspect", network]
@@ -49,7 +72,7 @@ def discover_nodes(tussle_name, pattern, required_nodes = 0):
                for e in json.loads(p.stdout)[0]["Containers"].values()
                if tussle_name + "_" + pattern + "." in e["Name"]]
         if required_nodes and len(res) != required_nodes:
-            time.sleep(1)
+            time.sleep(.5)
         else:
             return sorted(res, key = lambda x: x["container"])
 

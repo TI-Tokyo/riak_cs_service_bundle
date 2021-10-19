@@ -63,6 +63,7 @@ def start_riak_nodes(nodes):
     print()
 
 def start_riak_node(node, i):
+    time.sleep((i-1) * .5)
     p = docker_exec_proc(node, ["/opt/riak/bin/riak", "start"])
     if p.returncode != 0:
         if p.stdout == "Node is already running!\n":
@@ -166,28 +167,28 @@ def restore_rcs_advanced_config(node):
 def finalize_rcs_configs(nodes_annotated, auth_v4):
     print("Reonfiguring Riak CS nodes")
     if auth_v4:
-        auth_v4_erl = "true"
+        auth_v4_conf = "on"
     else:
-        auth_v4_erl = "false"
-    for (rn, u) in nodes_annotated:
+        auth_v4_conf = "off"
+    for (rn, (_,u)) in nodes_annotated:
         p = docker_exec_proc(rn, ["sed", "-i", "-E",
                                   "-e", "s|anonymous_user_creation = on|anonymous_user_creation = off|",
                                   "-e", "s|admin.key = .+|admin.key = %s|" % u["key_id"],
+                                  "-e", "s|auth_v4 = .+|auth_v4 = %s|" % auth_v4_conf,
                                   "/opt/riak-cs/etc/riak-cs.conf"])
         if p.returncode != 0:
             sys.exit("Failed to modify riak-cs.conf node at %s: %s%s" % (rn["ip"], p.stdout, p.stderr))
-        docker_exec_proc(rn, ["sed", "-zEie", "s/.+/[{riak_cs,[{auth_v4_enabled,%s}]}]./" % auth_v4_erl,
-                              "/opt/riak-cs/etc/advanced.config"]).stdout
 
 
 def start_rcs_nodes(nodes, do_restart = False):
     print("Starting Riak CS nodes:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(start_rcs_node, [(nodes[i], do_restart) for i in range(len(nodes))])
+        p.starmap(start_rcs_node, [(nodes[i], i, do_restart) for i in range(len(nodes))])
     subprocess.run(['stty', 'sane'])
     print()
 
-def start_rcs_node(node, do_restart):
+def start_rcs_node(node, i, do_restart):
+    time.sleep(i * .5)
     if do_restart:
         p = docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "stop"])
         print(" (%s)" % node["ip"], end = '', flush = True)
@@ -213,7 +214,7 @@ def preconfigure_stanchion_nodes(nodes_annotated):
             sys.exit("Failed to modify stanchion.conf node at %s: %s%s" % (sn["ip"], p.stdout, p.stderr))
 
 def finalize_stanchion_configs(nodes_with_keys):
-    print("Reconfiguring Stanchion node")
+    print("Reconfiguring Stanchion nodes:")
     for (n, u) in nodes_with_keys:
         p = docker_exec_proc(n, ["sed", "-i", "-E",
                                  "-e", "s|admin.key = .+|admin.key = %s|" % u["key_id"],
@@ -300,7 +301,7 @@ def main():
                                      [riak_nodes[n[0]-1] for n in riak_topo.values()]))
     start_stanchion_nodes(stanchion_nodes)
 
-    admin_users = []
+    admin_users = {}
     if not have_old_data:
         admin_email = "admin@tussle.org"
         admin_name = "admin"
@@ -318,7 +319,7 @@ def main():
                   "  key_id: %s\n  key_secret: %s\n"
                   % (rcs_ext_ip, c, admin_name, admin_email,
                      admin_user["key_id"], admin_user["key_secret"]))
-            admin_users.append(admin_user)
+            admin_users |= {rcs_node["ip"]: admin_user}
     else:
         if len(riak_topo) > 1:
             sys.exit("Resuming work is only supported for single-cluster topology")
@@ -339,17 +340,17 @@ def main():
                   " admin user (%s <%s>) with creds:\n  key_id: %s\n  key_secret: %s\n"
                   % (rcs_ext_ip, c, admin_user["name"], admin_user["email"],
                      admin_user["key_id"], admin_user["key_secret"]))
-            admin_users.append(admin_user)
+            admin_users |= {rcs_node["ip"]: admin_user}
 
-    finalize_stanchion_configs(zip(stanchion_nodes, admin_users))
+    finalize_stanchion_configs(zip(stanchion_nodes, admin_users.values()))
     start_stanchion_nodes(stanchion_nodes, do_restart = True)
-    finalize_rcs_configs(zip(rcs_nodes, admin_users), auth_v4)
+    finalize_rcs_configs(zip(rcs_nodes, expand_to_all_rcs_nodes(admin_users, rcs_nodes).items()), auth_v4)
     start_rcs_nodes(rcs_nodes, do_restart = True)
 
     start_rcsc_nodes([(n,
                        rcs_nodes[get_one_rcs_node_id_for_riak_cluster(riak_topo[c], rcs_topo) - 1],
                        u)
-                      for (c, n, u) in zip(riak_topo.keys(), rcsc_nodes, admin_users)])
+                      for (c, n, (_,u)) in zip(riak_topo.keys(), rcsc_nodes, admin_users.items())])
 
     print("\nRiak clusters and addresses:")
     for c in riak_topo.keys():
