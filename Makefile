@@ -34,11 +34,11 @@ RCSC_DOCKERFILE := Dockerfile-3.x
 
 RIAK_PLATFORM_DIR ?= $(shell pwd)/p
 
-N_RIAK_NODES     ?= 3
-N_RCS_NODES      ?= 2
-RCS_AUTH_V4      ?= on
-RIAK_TOPO        ?= "riak-topo.json"
-RCS_TOPO         ?= "rcs-topo.json"
+N_RIAK_NODES      ?= $(shell ./nodes_from_topo riak)
+N_RCS_NODES       ?= $(shell ./nodes_from_topo rcs)
+N_STANCHION_NODES ?= $(shell ./nodes_from_topo stanchion)
+N_RCSC_NODES      ?= $(shell ./nodes_from_topo rcsc)
+RCS_AUTH_V4       ?= on
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
@@ -96,20 +96,20 @@ start-quick:
 	 RCSC_VSN=$(RCSC_VSN) \
 	 N_RIAK_NODES=$(N_RIAK_NODES) \
 	 N_RCS_NODES=$(N_RCS_NODES) \
+	 N_STANCHION_NODES=$(N_STANCHION_NODES) \
+	 N_RCSC_NODES=$(N_RCSC_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
 	 && docker stack deploy -c docker-compose-run.yml $(DOCKER_SERVICE_NAME) \
 	 && ./prepare-tussle \
 		$(DOCKER_SERVICE_NAME) \
-		$(N_RIAK_NODES) $(N_RCS_NODES)\
-		$(RCS_AUTH_V4) \
-	        $(RIAK_TOPO) \
-	        $(RCS_TOPO)
+		$(N_RIAK_NODES) $(N_RCS_NODES) $(N_STANCHION_NODES) $(N_RCSC_NODES) \
+		$(RCS_AUTH_V4)
 
 stop:
 	@COMPOSE_FILE=docker-compose-run.yml \
 	    docker stack rm $(DOCKER_SERVICE_NAME)
 	@echo "Waiting until containers are stopped.."
-	@docker container ls --filter "name=rcs-tussle-one" --format='{{.Names}}' | xargs docker wait >/dev/null
+	@docker container ls --filter "name=rcs-tussle-one" --format='{{.Names}}' | xargs docker wait >/dev/null 2>&1 || :
 
 ensure-dirs:
 	@mkdir -p $(RIAK_PLATFORM_DIR){/data,/log}

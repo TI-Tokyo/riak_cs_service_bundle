@@ -11,7 +11,7 @@ configured.  Applications versions can be defined in environment
 variables `RIAK_VSN`, `RCS_VSN`, `RCSC_VSN` and `STANCHION_VSN` (with
 "3.0.8", "3.0.0pre8", "3.0.0pre3", "3.0.0pre8", respectively, as
 defaults).  Images for riak\_cs, riak\_cs\_control and stanchion are
-built from source, pulled from repos at github.com/basho (riak)
+built from source, pulled from repos at github.com/basho (riak) and
 github.com/TI-Tokyo (rest).
 
 External addresses of Riak CS nodes and the node running Riak CS
@@ -29,13 +29,9 @@ built, once, with `make R16`.
 
 ## Cluster topologies
 
-The number of nodes in riak cluster is defined by env var
-`N_RIAK_NODES` (3 by default); likewise, `N_RCS_NODES` (2 by default)
-defines the number of RIak CS nodes (with each _n_'th connected to
-_n_'th Riak node, wrapping if the number of the latter is greater).
-
-Alternative topologies can be specified (see examples in
-"riak-topo.json" and "rcs-topo.json".
+Cluster topologies can be specified in "riak-topo.json" and
+"rcs-topo.json" (see examples in "riak-topo.json.example" and
+"rcs-topo.json.example".
 
 ## Persisting state
 
@@ -45,6 +41,11 @@ number (1-based).  Unless explicitly set, directories will be created
 in "./p".  Similarly, riak logs can be found at
 `${RIAK_PLATFORM_DIR}/riak/logs/${N}`.  To delete it, do `make clean`
 (or `rm -rf p` manually).
+
+Note that due to non-determinism inherent in the way docker assigns
+addresses, resuming operation (that is, `make start` followed by `make
+stop`) is only possible for topologies with a
+single riak cluster.
 
 ## Load-testing
 

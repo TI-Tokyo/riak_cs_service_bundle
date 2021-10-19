@@ -19,7 +19,7 @@ services:
         source: ${RIAK_PLATFORM_DIR}/log
         target: /opt/riak/log
     deploy:
-      replicas: ${N_RIAK_NODES:-3}
+      replicas: ${N_RIAK_NODES}
 
   stanchion:
     networks:
@@ -30,7 +30,7 @@ services:
       - "8085:8085"
     image: "rcs_bundle_stanchion.${STANCHION_VSN}"
     deploy:
-      replicas: 1
+      replicas: ${N_STANCHION_NODES}
 
   riak_cs:
     networks:
@@ -42,7 +42,7 @@ services:
       - "8000:8000"
     image: "rcs_bundle_riak_cs.${RCS_VSN}"
     deploy:
-      replicas: ${N_RCS_NODES:-2}
+      replicas: ${N_RCS_NODES}
 
   riak_cs_control:
     networks:
@@ -53,7 +53,7 @@ services:
       - "8090:8090"
     image: "rcs_bundle_riak_cs_control.${RCSC_VSN}"
     deploy:
-      replicas: 1
+      replicas: ${N_RCSC_NODES}
 
 networks:
   net0:

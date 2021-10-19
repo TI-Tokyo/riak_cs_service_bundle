@@ -1,20 +1,24 @@
 #!/usr/bin/env python
 
-import argparse, subprocess, multiprocessing
-from bundle_lib import discover_nodes, find_external_ips, get_admin_user
+import argparse, os, subprocess, multiprocessing
+from bundle_lib import discover_nodes, find_external_ips, get_admin_user, docker_exec_proc
 
-def load_test(s3_benchmark_path, s3_benchmark_params, do_parallel, rcs_hosts, aws_key_id, aws_key_secret):
+def load_test(s3_benchmark_path, s3_benchmark_params, do_parallel, rcs_hosts_with_creds):
+    nproc = len(rcs_hosts_with_creds)
     if do_parallel:
-        with multiprocessing.Pool(len(rcs_hosts)) as p:
+        with multiprocessing.Pool(nproc) as p:
             p.starmap(load_test_on_node,
-                      [(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
-                       for h in rcs_hosts])
+                      [(h, s3_benchmark_path, s3_benchmark_params, key, secret)
+                       for (h, (key, secret)) in rcs_hosts_with_creds.items()])
+        subprocess.run(['stty', 'sane'])
     else:
-        load_test_on_node(rcs_hosts[0], s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
+        for (h, (aws_key_id, aws_key_secret)) in rcs_hosts_with_creds:
+            load_test_on_node(h, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret)
 
 
 def load_test_on_node(rcs_host, s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret):
-    print("Running load test (%s %s) with Riak CS at %s:" % (s3_benchmark_path, s3_benchmark_params, rcs_host))
+    print("Running load test (%s %s -a %s -s %s) with Riak CS at %s:"
+          % (s3_benchmark_path, s3_benchmark_params, aws_key_id, aws_key_secret, rcs_host))
     p = subprocess.run(env = {"http_proxy": "http://" + rcs_host + ":8080"},
                        args = [s3_benchmark_path, "-a", aws_key_id, "-s", aws_key_secret] + s3_benchmark_params.split(" "),
                        capture_output = True,
@@ -28,6 +32,14 @@ RIAK_VSN=%s RIAK_CS_VSN=%s node=%s
 """ % (os.getenv("RIAK_VSN"), os.getenv("RIAK_CS_VSN"), rcs_host, p.stdout),
               file=f)
 
+def get_rcs_user_creds(node):
+    p = docker_exec_proc(node,
+                         ["/opt/riak_cs_control/bin/riak_cs_control", "eval",
+                          'io:format("~s ~s ~s\n", [riak_cs_control_configuration:cs_configuration(cs_admin_key),'
+                          'riak_cs_control_configuration:cs_configuration(cs_admin_secret),'
+                          'riak_cs_control_configuration:cs_configuration(cs_host)]).'])
+    [key, secret, host, _] = p.stdout.strip("\n").split()
+    return (host, (key, secret))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,18 +47,17 @@ def main():
     parser.add_argument("-O", "--options", default = "-t 5 -l 10 -d 30", help = "options to benchmark program")
     parser.add_argument("-p", "--parallel", action = "store_false", help = "run benchmarks against all riak_cs nodes in parallel")
     parser.add_argument("-n", "--docker_service_name", default = "rcs-tussle-one", help = "docker service name")
-    parser.add_argument("-k", "--key_id", required = True, help = "key id")
-    parser.add_argument("-s", "--key_secret", required = True, help = "key secret")
     args = parser.parse_args()
 
     tussle_name = args.docker_service_name
 
     rcs_nodes = discover_nodes(tussle_name, "riak_cs")
+    rcsc_nodes = discover_nodes(tussle_name, "riak_cs_control")
     rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
+    creds = dict([get_rcs_user_creds(n) for n in rcsc_nodes])
 
     load_test(args.executable, args.options,
-              args.parallel, rcs_ext_ips,
-              args.key_id, args.key_secret)
+              args.parallel, dict(zip(rcs_ext_ips, [creds[n["ip"]] for n in rcs_nodes])))
 
 if __name__ == "__main__":
     main()
