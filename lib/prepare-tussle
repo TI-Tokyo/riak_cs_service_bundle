@@ -79,13 +79,18 @@ def start_riak_nodes(nodes):
 
 def start_riak_node(node, i):
     time.sleep(i * .6)
-    p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "start"])
-    if p.returncode != 0:
-        if p.stdout == "Node is already running!\n":
-            print(" (%s)" % node["ip"], end = '', flush = True)
+    while True:
+        p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "start"])
+        if p.returncode != 0:
+            if p.stdout == "Node is already running!\n":
+                print(" (%s)" % node["ip"], end = '', flush = True)
+                return
+            sys.exit("Failed to start riak node at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
+        p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "ping"])
+        if p.stdout == "pong\n":
+            print(" [%s]" % node["ip"], end = '', flush = True)
             return
-        sys.exit("Failed to start riak node at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
-    print(" [%s]" % node["ip"], end = '', flush = True)
+        print(" ", end = '', flush = True)
 
 def wait_for_services(node, i):
     repeat = 30
@@ -201,8 +206,13 @@ def start_rcs_node(node, i, do_restart):
     if do_restart:
         docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "stop"])
         print(" (%s)" % node["ip"], end = '', flush = True)
-    docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "start"])
-    print(" [%s]" % node["ip"], end = '', flush = True)
+    while True:
+        docker_exec_proc_(node, ["/opt/riak-cs/bin/riak-cs", "start"])
+        p = docker_exec_proc_(node, ["/opt/riak-cs/bin/riak-cs", "ping"])
+        if p.stdout == "pong\n":
+            print(" [%s]" % node["ip"], end = '', flush = True)
+            return
+        print(" ", end = '', flush = True)
 
 
 # stanchion
@@ -236,10 +246,14 @@ def start_stanchion_nodes(nodes, do_restart = False):
 def start_stanchion_node(node, i, do_restart):
     time.sleep(i * .6)
     if do_restart:
-        p = docker_exec_proc(node, ["/opt/stanchion/bin/stanchion", "stop"])
+        docker_exec_proc(node, ["/opt/stanchion/bin/stanchion", "stop"])
         print(" (%s)" % node["ip"], end = '', flush = True)
-    docker_exec_proc(node, ["/opt/stanchion/bin/stanchion", "start"])
-    print(" [%s]" % node["ip"], end = '', flush = True)
+    while True:
+        docker_exec_proc_(node, ["/opt/stanchion/bin/stanchion", "start"])
+        if docker_exec_proc_(node, ["/opt/stanchion/bin/stanchion", "ping"]).stdout == "pong\n":
+            print(" [%s]" % node["ip"], end = '', flush = True)
+            return
+        print(" ", end = '', flush = True)
 
 
 # riak_cs_control
@@ -254,14 +268,16 @@ def start_rcsc_nodes(nodes_annotated):
 def start_rcsc_node(node_annotated, i):
     time.sleep(i * .3)
     (node, rcs_node, user) = node_annotated
-    subprocess.run(args = ["docker", "exec", "-it",
-                           "--env", "CS_HOST=" + rcs_node["ip"],
-                           "--env", "CS_ADMIN_KEY=" + user["key_id"],
-                           "--env", "CS_ADMIN_SECRET=" + user["key_secret"],
+    while True:
+        subprocess.run(args = ["docker", "exec", "-it",
+                               "--env", "CS_HOST=" + rcs_node["ip"],
+                               "--env", "CS_ADMIN_KEY=" + user["key_id"],
+                               "--env", "CS_ADMIN_SECRET=" + user["key_secret"],
                                node["container"],
-                           "/opt/riak_cs_control/bin/riak_cs_control", "daemon"],
-                   capture_output = True,
-                   encoding = "utf8")
+                               "/opt/riak_cs_control/bin/riak_cs_control", "daemon"])
+        if "pong\n" == docker_exec_proc_(node, ["/opt/riak_cs_control/bin/riak_cs_control", "ping"]).stdout:
+            return
+        print(" ", flush = True, end = '')
 
 
 def main():
