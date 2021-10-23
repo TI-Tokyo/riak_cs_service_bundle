@@ -10,34 +10,34 @@ RCSC_VSN            ?= 3.0.0pre3
 # with R16 that we have built specially (for 2.x tags)
 
 ifneq ($(RIAK_VSN:2.%=xx%), $(RIAK_VSN))
-RIAK_DOCKERFILE := Dockerfile-2.x
+RIAK_DOCKERFILE := Dockerfile-riak-2.x
 else
-RIAK_DOCKERFILE := Dockerfile-3.x
+RIAK_DOCKERFILE := Dockerfile-riak-3.x
 endif
 
 ifneq ($(RCS_VSN:2.%=xx%), $(RCS_VSN))
-RCS_DOCKERFILE := Dockerfile-2.x
+RCS_DOCKERFILE := Dockerfile-riak_cs-2.x
 else
-RCS_DOCKERFILE := Dockerfile-3.x
+RCS_DOCKERFILE := Dockerfile-riak_cs-3.x
 endif
 
 ifneq ($(STANCHION_VSN:2.%=xx%), $(STANCHION_VSN))
-STANCHION_DOCKERFILE := Dockerfile-2.x
+STANCHION_DOCKERFILE := Dockerfile-stanchion-2.x
 else
-STANCHION_DOCKERFILE := Dockerfile-3.x
+STANCHION_DOCKERFILE := Dockerfile-stanchion-3.x
 endif
 
 # old riak-cs-control won't build with R16
 # (and it doesn't really matter anyway)
-RCSC_DOCKERFILE := Dockerfile-3.x
+RCSC_DOCKERFILE := Dockerfile-riak_cs_control-3.x
 
 
 RIAK_PLATFORM_DIR ?= $(shell pwd)/p
 
-N_RIAK_NODES      ?= $(shell ./nodes_from_topo riak)
-N_RCS_NODES       ?= $(shell ./nodes_from_topo rcs)
-N_STANCHION_NODES ?= $(shell ./nodes_from_topo stanchion)
-N_RCSC_NODES      ?= $(shell ./nodes_from_topo rcsc)
+N_RIAK_NODES      ?= $(shell ./lib/nodes_from_topo riak)
+N_RCS_NODES       ?= $(shell ./lib/nodes_from_topo rcs)
+N_STANCHION_NODES ?= $(shell ./lib/nodes_from_topo stanchion)
+N_RCSC_NODES      ?= $(shell ./lib/nodes_from_topo rcsc)
 RCS_AUTH_V4       ?= on
 
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
@@ -45,45 +45,50 @@ DOCKER_SERVICE_NAME ?= rcs-tussle-one
 clone := git -c advice.detachedHead=false clone --depth 1
 sources:
 	@(export F="openssl-1.0.2u.tar.gz" && \
-	 cd R16 && test -r $$F || wget https://www.openssl.org/source/old/1.0.2/$$F)
+	 cd repos/R16 && test -r $$F || wget https://www.openssl.org/source/old/1.0.2/$$F)
 	@(export F="autoconf-2.59.tar.bz2" && \
-	 cd R16 && test -r $$F || wget http://ftp.gnu.org/gnu/autoconf/$$F)
+	 cd repos/R16 && test -r $$F || wget http://ftp.gnu.org/gnu/autoconf/$$F)
 	@(export F="OTP_R16B02_basho10.tar.gz" && \
-	 cd R16 && test -r $$F || wget https://github.com/basho/otp/archive/refs/tags/$$F)
+	 cd repos/R16 && test -r $$F || wget https://github.com/basho/otp/archive/refs/tags/$$F)
 
-	@(test -d riak/riak-${RIAK_VSN} || \
-	  ${clone} -b riak-${RIAK_VSN} https://github.com/basho/riak riak/riak-${RIAK_VSN})
-	@(test -d riak_cs/riak_cs-${RCS_VSN} || \
+	@(test -d repos/riak-${RIAK_VSN} || \
+	  ${clone} -b riak-${RIAK_VSN} https://github.com/basho/riak repos/riak-${RIAK_VSN})
+	@(test -d repos/riak_cs-${RCS_VSN} || \
 	  ${clone} -b ${RCS_VSN} \
-	  https://github.com/TI-Tokyo/riak_cs riak_cs/riak_cs-${RCS_VSN})
-	@(test -d stanchion/stanchion-${STANCHION_VSN} || \
+	  https://github.com/TI-Tokyo/riak_cs repos/riak_cs-${RCS_VSN})
+	@(test -d repos/stanchion-${STANCHION_VSN} || \
 	  ${clone} -b ${STANCHION_VSN} \
-	  https://github.com/TI-Tokyo/stanchion stanchion/stanchion-${STANCHION_VSN})
-	@(test -d riak_cs_control/riak_cs_control-${RCSC_VSN} || \
-	  ${clone} -b ${RCSC_VSN} https://github.com/TI-Tokyo/riak_cs_control riak_cs_control/riak_cs_control-${RCSC_VSN})
+	  https://github.com/TI-Tokyo/stanchion repos/stanchion-${STANCHION_VSN})
+	@(test -d repos/riak_cs_control-${RCSC_VSN} || \
+	  ${clone} -b ${RCSC_VSN} https://github.com/TI-Tokyo/riak_cs_control repos/riak_cs_control-${RCSC_VSN})
 
 R16:
-	(cd R16 && docker build --tag erlang:R16 .)
+	(cd repos/R16 && docker build --tag erlang:R16 .)
 
 build: sources
-	@COMPOSE_FILE=docker-compose-build.yml \
-	 RIAK_VSN=$(RIAK_VSN) \
-	 RCS_VSN=$(RCS_VSN) \
-	 RCSC_VSN=$(RCSC_VSN) \
-	 STANCHION_VSN=$(STANCHION_VSN) \
-	 RIAK_DOCKERFILE=$(RIAK_DOCKERFILE) \
-	 RCS_DOCKERFILE=$(RCS_DOCKERFILE) \
-	 RCSC_DOCKERFILE=$(RCSC_DOCKERFILE) \
-	 STANCHION_DOCKERFILE=$(STANCHION_DOCKERFILE) \
-	 docker-compose build \
+	@(cd docker && \
+	  cp -a ../repos/riak-$(RIAK_VSN) . && \
+	  cp -a ../repos/riak_cs-$(RCS_VSN) . && \
+	  cp -a ../repos/stanchion-$(STANCHION_VSN) . && \
+	  cp -a ../repos/riak_cs_control-$(RCSC_VSN) . && \
+	  COMPOSE_FILE=compose-build.yml \
+	  RIAK_VSN=$(RIAK_VSN) \
+	  RCS_VSN=$(RCS_VSN) \
+	  RCSC_VSN=$(RCSC_VSN) \
+	  STANCHION_VSN=$(STANCHION_VSN) \
+	  RIAK_DOCKERFILE=$(RIAK_DOCKERFILE) \
+	  RCS_DOCKERFILE=$(RCS_DOCKERFILE) \
+	  RCSC_DOCKERFILE=$(RCSC_DOCKERFILE) \
+	  STANCHION_DOCKERFILE=$(STANCHION_DOCKERFILE) \
+	  docker-compose build \
 	    --build-arg RIAK_VSN=$(RIAK_VSN) \
 	    --build-arg RCS_VSN=$(RCS_VSN) \
 	    --build-arg RCSC_VSN=$(RCSC_VSN) \
-	    --build-arg STANCHION_VSN=$(STANCHION_VSN)
+	    --build-arg STANCHION_VSN=$(STANCHION_VSN) && \
+	  rm -rf riak-$(RIAK_VSN) riak_cs-$(RCS_VSN) stanchion-$(STANCHION_VSN) riak_cs_control-$(RCSC_VSN))
 
-start: build ensure-dirs start-quick
 
-start-quick:
+start: build ensure-dirs
 	@docker swarm init >/dev/null 2>&1 || :
 	@echo
 	@echo "Starting bundle with RIAK_VSN=$(RIAK_VSN) and RCS_VSN=$(RCS_VSN)"
@@ -99,15 +104,14 @@ start-quick:
 	 N_STANCHION_NODES=$(N_STANCHION_NODES) \
 	 N_RCSC_NODES=$(N_RCSC_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
-	 && docker stack deploy -c docker-compose-run.yml $(DOCKER_SERVICE_NAME) \
-	 && ./prepare-tussle \
+	 && docker stack deploy -c docker/compose-run.yml $(DOCKER_SERVICE_NAME) \
+	 && ./lib/prepare-tussle \
 		$(DOCKER_SERVICE_NAME) \
 		$(N_RIAK_NODES) $(N_RCS_NODES) $(N_STANCHION_NODES) $(N_RCSC_NODES) \
 		$(RCS_AUTH_V4)
 
 stop:
-	@COMPOSE_FILE=docker-compose-run.yml \
-	    docker stack rm $(DOCKER_SERVICE_NAME)
+	@docker stack rm $(DOCKER_SERVICE_NAME)
 	@echo "Waiting until containers are stopped.."
 	@docker container ls --filter "name=rcs-tussle-one" --format='{{.Names}}' | xargs docker wait >/dev/null 2>&1 || :
 

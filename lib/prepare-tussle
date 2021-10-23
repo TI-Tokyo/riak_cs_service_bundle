@@ -1,4 +1,27 @@
-#!/usr/bin/env python
+#!/bin/env python
+
+# Copyright (c) 2021 TI Tokyo. All Rights Reserved.
+#
+# This file is provided to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file
+# except in compliance with the License.  You may obtain
+# a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# ---------------------------------------------------------------------
+
+# Orchestration script for riak_cs_service_bundle. It is executed,
+# with proper parameters, by make start and is not supposed to be used
+# separately.
+
 
 import json, sys, os, time, subprocess, multiprocessing
 from bundle_lib import *
@@ -10,7 +33,7 @@ def check_preexisting_riak_data(nodes):
     have_old_data = False
     ni = 1
     for n in nodes:
-        if docker_exec_proc(n, ["stat", "/opt/riak/data/%d/cluster_meta" % ni]).returncode == 0:
+        if docker_exec_proc_(n, ["stat", "/opt/riak/data/%d/cluster_meta" % ni]).returncode == 0:
             print("  deleting cluster_meta and ring dirs on", n["ip"])
             docker_exec_proc(n, ["rm", "-rf", "/opt/riak/data/%d/cluster_meta" % ni, "/opt/riak/data/%d/ring" % ni])
             have_old_data = True
@@ -26,28 +49,20 @@ def configure_riak_nodes(nodes):
     for n in nodes:
         print("  %d: %s" % (ni, n["ip"]))
         nodename = "riak@" + n["ip"]
-        p = docker_exec_proc(n, ["sed", "-i", "-E",
-                                 "-e", "s|nodename = .+|nodename = %s|" % nodename,
-                                 "-e", "s|listener\.http\.internal = .+|listener.http.internal = 0.0.0.0:8098|",
-                                 "-e", "s|listener\.protobuf\.internal = .+|listener.protobuf.internal = 0.0.0.0:8087|",
-                                 "-e", "s|platform_data_dir = .+|platform_data_dir = /opt/riak/data/%d|" % ni,
-                                 "-e", "s|platform_log_dir = .+|platform_log_dir = /opt/riak/log/%d|" % ni,
-                                 "-e", "s|mdc\.data_root = .+|mdc.data_root = /opt/riak/data/%d/riak_repl|" % ni,
-                                 "-e", "s|mdc\.cluster_manager = .+|mdc.cluster_manager = 0.0.0.0:9080|",
-#                                 "-e", "s|mdc\.fullsync_on_connect = true|mdc.fullsync_on_connect = false|",
-#                                 "-e", "s|mdc\.proxy_get = off|mdc.proxy_get = on|",
-                                 "/opt/riak/etc/riak.conf"])
-        if p.returncode != 0:
-            sys.exit("Failed to modify riak.conf at %s: %s%s" % (n["ip"], p.stdout, p.stderr))
-        p = docker_exec_proc(n, ["sed", "-i", "-E",
-                                 "-e", "s|/opt/riak/log|/opt/riak/log/%d|" % ni,
-                                 "-e", "s|\{data_root, \"\./data/riak_repl/\"\}|{data_root, \"/opt/riak/data/%d/riak_repl/\"}|" % ni,
-                                 "-e", "s|\{home, \"\./data/setup\"\}|{home, \"/opt/riak/data/%d/setup\"}|" % ni,
-#                                 "-e", "s|\{fullsync_on_connect, .+\}|{fullsync_on_connect, false}|",
-#                                 "-e", "s|\{fullsync_interval, .+\}|{fullsync_interval, disabled}|",
-                                 "/opt/riak/etc/advanced.config"])
-        if p.returncode != 0:
-            sys.exit("Failed to modify advanced.config at %s: %s%s" % (n["ip"], p.stdout, p.stderr))
+        docker_exec_proc(n, ["sed", "-i", "-E",
+                             "-e", "s|nodename = .+|nodename = %s|" % nodename,
+                             "-e", "s|listener\.http\.internal = .+|listener.http.internal = 0.0.0.0:8098|",
+                             "-e", "s|listener\.protobuf\.internal = .+|listener.protobuf.internal = 0.0.0.0:8087|",
+                             "-e", "s|platform_data_dir = .+|platform_data_dir = /opt/riak/data/%d|" % ni,
+                             "-e", "s|platform_log_dir = .+|platform_log_dir = /opt/riak/log/%d|" % ni,
+                             "-e", "s|mdc\.data_root = .+|mdc.data_root = /opt/riak/data/%d/riak_repl|" % ni,
+                             "-e", "s|mdc\.cluster_manager = .+|mdc.cluster_manager = 0.0.0.0:9080|",
+                             "/opt/riak/etc/riak.conf"])
+        docker_exec_proc(n, ["sed", "-i", "-E",
+                             "-e", "s|/opt/riak/log|/opt/riak/log/%d|" % ni,
+                             "-e", "s|\{data_root, \"\./data/riak_repl/\"\}|{data_root, \"/opt/riak/data/%d/riak_repl/\"}|" % ni,
+                             "-e", "s|\{home, \"\./data/setup\"\}|{home, \"/opt/riak/data/%d/setup\"}|" % ni,
+                             "/opt/riak/etc/advanced.config"])
         ni = ni + 1
 
 def start_riak_nodes(nodes):
@@ -58,13 +73,13 @@ def start_riak_nodes(nodes):
     print()
     print("Waiting for riak cluster to become ready:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(wait_for_services, [(nodes[i], i+1) for i in range(len(nodes))])
+        p.starmap(wait_for_services, [(nodes[i], i) for i in range(len(nodes))])
     subprocess.run(['stty', 'sane'])
     print()
 
 def start_riak_node(node, i):
-    time.sleep((i-1) * .5)
-    p = docker_exec_proc(node, ["/opt/riak/bin/riak", "start"])
+    time.sleep(i * .6)
+    p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "start"])
     if p.returncode != 0:
         if p.stdout == "Node is already running!\n":
             print(" (%s)" % node["ip"], end = '', flush = True)
@@ -73,33 +88,26 @@ def start_riak_node(node, i):
     print(" [%s]" % node["ip"], end = '', flush = True)
 
 def wait_for_services(node, i):
-    repeat = 10
+    repeat = 30
     while repeat > 0:
-        p = docker_exec_proc(node, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
+        p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
         if p.stdout == "riak_kv is up\n":
             break
         else:
-            time.sleep(1)
+            time.sleep(.5)
             repeat = repeat-1
-    repeat = 10
+    repeat = 30
     while repeat > 0:
-        p = docker_exec_proc(node, ["/opt/riak/bin/riak", "admin", "ringready"])
+        p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "admin", "ringready"])
         if p.returncode == 0:
             break
         else:
-            time.sleep(1)
+            time.sleep(.5)
             repeat = repeat-1
     print(" [%s]" % node["ip"], end = '', flush = True)
 
-def which_riak_admin():
-    vsn = os.getenv("RIAK_VSN")[0]
-    if vsn == "2":
-        return ["/opt/riak/bin/riak-admin"]
-    if vsn == "3":
-        return ["/opt/riak/bin/riak", "admin"]
-
 def join_riak_nodes(nodes, topo):
-    riak_admin = which_riak_admin()
+    riak_admin = _which_riak_admin()
     for cluster in topo:
         clustering_node_ids = topo[cluster]
         clustering_nodes = [nodes[n-1] for n in clustering_node_ids]
@@ -110,20 +118,20 @@ def join_riak_nodes(nodes, topo):
         print("Joining nodes %s to %s" % ([n["ip"] for n in rest], first["ip"]))
         for n in rest:
             p = docker_exec_proc(n, riak_admin + ["cluster", "join", "riak@" + first["ip"]])
-            if p.returncode != 0:
-                sys.exit("Failed to execute a join command on node %s (%s): %s%s" %
-                         (n["container"], n["ip"], p.stdout, p.stderr))
             print(p.stdout)
         for n in clustering_nodes:
             p = docker_exec_proc(n, riak_admin + ["cluster", "plan"])
-            if p.returncode != 0:
-                sys.exit("Failed to execute a join command on node %s (%s): %s%s" % (n["container"], n["ip"], p.stdout, p.stderr))
             print(p.stdout)
         for n in rest:
             p = docker_exec_proc(n, riak_admin + ["cluster", "commit"])
-            if p.returncode != 0:
-                sys.exit("Failed to execute a join command on node %s (%s): %s%s" % (n["container"], n["ip"], p.stdout, p.stderr))
             print(p.stdout)
+
+def _which_riak_admin():
+    vsn = os.getenv("RIAK_VSN")[0]
+    if vsn == "2":
+        return ["/opt/riak/bin/riak-admin"]
+    if vsn == "3":
+        return ["/opt/riak/bin/riak", "admin"]
 
 
 # riak_cs
@@ -135,15 +143,13 @@ def preconfigure_rcs_nodes(nodes_annotated):
     for (cn, rn, sn) in nodes_annotated:
         nodename = "riak_cs@" + cn["ip"]
         print("  %d: %s->%s->%s" % (n, cn["ip"], sn["ip"], rn["ip"]))
-        p = docker_exec_proc(cn, ["sed", "-i", "-E",
-                                  "-e", "s|nodename = .+|nodename = %s|" % nodename,
-                                  "-e", "s|listener = .+|listener = 0.0.0.0:8080|",
-                                  "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
-                                  "-e", "s|stanchion_host = .+|stanchion_host = %s:8085|" % sn["ip"],
-                                  "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
-                                  "/opt/riak-cs/etc/riak-cs.conf"])
-        if p.returncode != 0:
-            sys.exit("Failed to modify riak-cs.conf node at %s: %s%s" % (rn["ip"], p.stdout, p.stderr))
+        docker_exec_proc(cn, ["sed", "-i", "-E",
+                              "-e", "s|nodename = .+|nodename = %s|" % nodename,
+                              "-e", "s|listener = .+|listener = 0.0.0.0:8080|",
+                              "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
+                              "-e", "s|stanchion_host = .+|stanchion_host = %s:8085|" % sn["ip"],
+                              "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
+                              "/opt/riak-cs/etc/riak-cs.conf"])
         n = n + 1
     print()
 
@@ -168,16 +174,19 @@ def finalize_rcs_configs(nodes_annotated, auth_v4):
     print("Reonfiguring Riak CS nodes")
     if auth_v4:
         auth_v4_conf = "on"
+        auth_v4_erl = "true"
     else:
         auth_v4_conf = "off"
+        auth_v4_erl = "false"
     for (rn, (_,u)) in nodes_annotated:
-        p = docker_exec_proc(rn, ["sed", "-i", "-E",
-                                  "-e", "s|anonymous_user_creation = on|anonymous_user_creation = off|",
-                                  "-e", "s|admin.key = .+|admin.key = %s|" % u["key_id"],
-                                  "-e", "s|auth_v4 = .+|auth_v4 = %s|" % auth_v4_conf,
-                                  "/opt/riak-cs/etc/riak-cs.conf"])
-        if p.returncode != 0:
-            sys.exit("Failed to modify riak-cs.conf node at %s: %s%s" % (rn["ip"], p.stdout, p.stderr))
+        docker_exec_proc(rn, ["sed", "-i", "-E",
+                              "-e", "s|anonymous_user_creation = on|anonymous_user_creation = off|",
+                              "-e", "s|admin.key = .+|admin.key = %s|" % u["key_id"],
+                              "-e", "s|auth_v4 = .+|auth_v4 = %s|" % auth_v4_conf,
+                              "/opt/riak-cs/etc/riak-cs.conf"])
+        # required for riak_cs 2.x
+        docker_exec_proc(rn, ["sed", "-zEie", "s/.+/[{riak_cs,[{auth_v4_enabled,%s}]}]./" % auth_v4_erl,
+                              "/opt/riak-cs/etc/advanced.config"]).stdout
 
 
 def start_rcs_nodes(nodes, do_restart = False):
@@ -188,13 +197,11 @@ def start_rcs_nodes(nodes, do_restart = False):
     print()
 
 def start_rcs_node(node, i, do_restart):
-    time.sleep(i * .5)
+    time.sleep(i * .6)
     if do_restart:
-        p = docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "stop"])
+        docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "stop"])
         print(" (%s)" % node["ip"], end = '', flush = True)
-    p = docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "start"])
-    if p.returncode != 0:
-        sys.exit("Failed to start Riak CS at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
+    docker_exec_proc(node, ["/opt/riak-cs/bin/riak-cs", "start"])
     print(" [%s]" % node["ip"], end = '', flush = True)
 
 
@@ -205,39 +212,33 @@ def preconfigure_stanchion_nodes(nodes_annotated):
     print("Configuring Stanchion nodes")
     for (sn, rn) in nodes_annotated:
         nodename = "stanchion@" + sn["ip"]
-        p = docker_exec_proc(sn, ["sed", "-i", "-E",
-                                  "-e", "s|nodename = stanchion@127.0.0.1|nodename = %s|" % nodename,
-                                  "-e", "s|listener = 127.0.0.1:8085|listener = 0.0.0.0:8085|",
-                                  "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
-                                  "/opt/stanchion/etc/stanchion.conf"])
-        if p.returncode != 0:
-            sys.exit("Failed to modify stanchion.conf node at %s: %s%s" % (sn["ip"], p.stdout, p.stderr))
+        docker_exec_proc(sn, ["sed", "-i", "-E",
+                              "-e", "s|nodename = stanchion@127.0.0.1|nodename = %s|" % nodename,
+                              "-e", "s|listener = 127.0.0.1:8085|listener = 0.0.0.0:8085|",
+                              "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
+                              "/opt/stanchion/etc/stanchion.conf"])
 
 def finalize_stanchion_configs(nodes_with_keys):
     print("Reconfiguring Stanchion nodes:")
     for (n, u) in nodes_with_keys:
-        p = docker_exec_proc(n, ["sed", "-i", "-E",
-                                 "-e", "s|admin.key = .+|admin.key = %s|" % u["key_id"],
-                                 "/opt/stanchion/etc/stanchion.conf"])
-        if p.returncode != 0:
-            sys.exit("Failed to modify stanchion.conf node at %s: %s%s" % (n["ip"], p.stdout, p.stderr))
-
+        docker_exec_proc(n, ["sed", "-i", "-E",
+                             "-e", "s|admin.key = .+|admin.key = %s|" % u["key_id"],
+                             "/opt/stanchion/etc/stanchion.conf"])
 
 
 def start_stanchion_nodes(nodes, do_restart = False):
     print("Starting Stanchion nodes:", end = '')
     with multiprocessing.Pool(len(nodes)) as p:
-        p.starmap(start_stanchion_node, [(nodes[i], do_restart) for i in range(len(nodes))])
+        p.starmap(start_stanchion_node, [(nodes[i], i, do_restart) for i in range(len(nodes))])
     subprocess.run(['stty', 'sane'])
     print()
 
-def start_stanchion_node(node, do_restart):
+def start_stanchion_node(node, i, do_restart):
+    time.sleep(i * .6)
     if do_restart:
         p = docker_exec_proc(node, ["/opt/stanchion/bin/stanchion", "stop"])
         print(" (%s)" % node["ip"], end = '', flush = True)
-    p = docker_exec_proc(node, ["/opt/stanchion/bin/stanchion", "start"])
-    if p.returncode != 0:
-        sys.exit("Failed to start Stanchion at %s: %s%s" % (node["ip"], p.stdout, p.stderr))
+    docker_exec_proc(node, ["/opt/stanchion/bin/stanchion", "start"])
     print(" [%s]" % node["ip"], end = '', flush = True)
 
 
@@ -247,19 +248,20 @@ def start_stanchion_node(node, do_restart):
 def start_rcsc_nodes(nodes_annotated):
     print("Starting Riak CS Control nodes:", end = '')
     with multiprocessing.Pool(len(nodes_annotated)) as p:
-        p.starmap(start_rcsc_node, [(n,) for n in nodes_annotated])
+        p.starmap(start_rcsc_node, [(nodes_annotated[i], i) for i in range(len(nodes_annotated))])
     subprocess.run(['stty', 'sane'])
     print()
-def start_rcsc_node(node_annotated):
+def start_rcsc_node(node_annotated, i):
+    time.sleep(i * .3)
     (node, rcs_node, user) = node_annotated
-    p = subprocess.run(args = ["docker", "exec", "-it",
-                               "--env", "CS_HOST=" + rcs_node["ip"],
-                               "--env", "CS_ADMIN_KEY=" + user["key_id"],
-                               "--env", "CS_ADMIN_SECRET=" + user["key_secret"],
+    subprocess.run(args = ["docker", "exec", "-it",
+                           "--env", "CS_HOST=" + rcs_node["ip"],
+                           "--env", "CS_ADMIN_KEY=" + user["key_id"],
+                           "--env", "CS_ADMIN_SECRET=" + user["key_secret"],
                                node["container"],
-                               "/opt/riak_cs_control/bin/riak_cs_control", "daemon"],
-                       capture_output = True,
-                       encoding = "utf8")
+                           "/opt/riak_cs_control/bin/riak_cs_control", "daemon"],
+                   capture_output = True,
+                   encoding = "utf8")
 
 
 def main():
@@ -290,16 +292,21 @@ def main():
 
     configure_riak_nodes(riak_nodes)
     start_riak_nodes(riak_nodes)
-    if len(riak_nodes) > 1:
-        join_riak_nodes(riak_nodes, riak_topo)
+    join_riak_nodes(riak_nodes, riak_topo)
 
-    preconfigure_rcs_nodes([(rcs_nodes[i-1],
-                             riak_nodes[rcs_topo[str(i)] - 1],
-                             stanchion_nodes[stanchion_node_id_for_rcs(i, riak_topo, rcs_topo) - 1])
-                            for i in range(1, 1+len(rcs_nodes))])
-    preconfigure_stanchion_nodes(zip(stanchion_nodes,
-                                     [riak_nodes[n[0]-1] for n in riak_topo.values()]))
-    start_stanchion_nodes(stanchion_nodes)
+    # first, we configure and start the tussle with
+    # anonymous_user_creation = on in riak-cs.conf, strictly and
+    # specifically to enable us to create an admin user
+    preconfigure_rcs_nodes(
+        [(rcs_nodes[i-1],
+          riak_nodes[rcs_topo[str(i)] - 1],
+          stanchion_nodes[stanchion_node_id_for_rcs(i, riak_topo, rcs_topo) - 1])
+         for i in range(1, 1+len(rcs_nodes))])
+    preconfigure_stanchion_nodes(
+        zip(stanchion_nodes,
+            [riak_nodes[n[0]-1] for n in riak_topo.values()]))
+    start_stanchion_nodes(
+        stanchion_nodes)
 
     admin_users = {}
     if not have_old_data:
@@ -342,15 +349,21 @@ def main():
                      admin_user["key_id"], admin_user["key_secret"]))
             admin_users |= {rcs_node["ip"]: admin_user}
 
-    finalize_stanchion_configs(zip(stanchion_nodes, admin_users.values()))
-    start_stanchion_nodes(stanchion_nodes, do_restart = True)
-    finalize_rcs_configs(zip(rcs_nodes, expand_to_all_rcs_nodes(admin_users, rcs_nodes).items()), auth_v4)
-    start_rcs_nodes(rcs_nodes, do_restart = True)
+    finalize_stanchion_configs(
+        zip(stanchion_nodes, admin_users.values()))
+    start_stanchion_nodes(
+        stanchion_nodes, do_restart = True)
 
-    start_rcsc_nodes([(n,
-                       rcs_nodes[get_one_rcs_node_id_for_riak_cluster(riak_topo[c], rcs_topo) - 1],
-                       u)
-                      for (c, n, (_,u)) in zip(riak_topo.keys(), rcsc_nodes, admin_users.items())])
+    finalize_rcs_configs(
+        zip(rcs_nodes, expand_to_all_rcs_nodes(admin_users, rcs_nodes).items()), auth_v4)
+    start_rcs_nodes(
+        rcs_nodes, do_restart = True)
+
+    start_rcsc_nodes(
+        [(n,
+          rcs_nodes[get_one_rcs_node_id_for_riak_cluster(riak_topo[c], rcs_topo) - 1],
+          u)
+         for (c, n, (_,u)) in zip(riak_topo.keys(), rcsc_nodes, admin_users.items())])
 
     print("\nRiak clusters and addresses:")
     for c in riak_topo.keys():

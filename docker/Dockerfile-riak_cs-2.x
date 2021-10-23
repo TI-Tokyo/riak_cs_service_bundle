@@ -1,15 +1,16 @@
 FROM erlang:R16 AS compile-image
-ARG STANCHION_VSN
+ARG RCS_VSN
 
-EXPOSE 8085
+EXPOSE 8080 8000
 
 RUN apt-get install -y git wget g++ libpam0g-dev
 
-ADD stanchion/stanchion-${STANCHION_VSN} /usr/src/S
+ADD riak_cs-${RCS_VSN} /usr/src/S
 WORKDIR /usr/src/S
+
 RUN make rel
 
-RUN mv /usr/src/S/rel/stanchion /opt/stanchion
+RUN mv /usr/src/S/rel/riak-cs /opt/riak-cs
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

@@ -49,13 +49,13 @@ single riak cluster.
 
 ## Load-testing
 
-The bundle provides a script, "load-test", which uses
+The bundle provides a script, "lib/load-test", which uses
 [s3-benchmark](https://github.com/TI-Tokyo/s3-benchmark) to generate
 sample data and perform the test.  By default, it runs
 "../s3-benchmark/s3-benchmark", with parameters "-t 5 -l 10 -d 30",
 meaning 10 loops 30 sec each, in 3 threads.
 
-There is a script, "all-combos", that will build riak tags 2.2.6,
+Another script, "scripts/all-combos", will build riak tags 2.2.6,
 2.9.10 and 3.0.8, riak\_cs tags 2.1.3pre1 and 3.0.0pre8, and run the
 load test in all riak+riak\_cs combinations, with results logged in
 load-test-report.

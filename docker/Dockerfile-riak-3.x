@@ -5,7 +5,7 @@ EXPOSE 8087 8098 9080
 
 RUN apt-get update && apt-get install -y libpam0g-dev
 
-ADD riak/riak-${RIAK_VSN} /usr/src/S
+ADD riak-${RIAK_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
 RUN ./rebar3 as rel release

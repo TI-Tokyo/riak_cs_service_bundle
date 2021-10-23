@@ -8,7 +8,7 @@ for rv in 2.2.6 2.9.10 3.0.8; do
             sv=$rcv
         fi
         RIAK_VSN=$rv RCS_VSN=$rcv STANCHION_VSN=$sv make start
-        ./load-test
+        ./lib/load-test
         make stop
         sleep 10
         make clean

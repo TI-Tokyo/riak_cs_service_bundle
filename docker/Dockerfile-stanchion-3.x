@@ -5,7 +5,7 @@ ARG STANCHION_VSN
 
 EXPOSE 8085
 
-ADD stanchion/stanchion-${STANCHION_VSN} /usr/src/S
+ADD stanchion-${STANCHION_VSN} /usr/src/S
 WORKDIR /usr/src/S
 RUN ./rebar3 as rel release
 

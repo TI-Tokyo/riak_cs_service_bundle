@@ -11,7 +11,7 @@ ARG RCSC_VSN
 
 EXPOSE 8090
 
-ADD riak_cs_control/riak_cs_control-${RCSC_VSN} /usr/src/S
+ADD riak_cs_control-${RCSC_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
 RUN ./rebar3 as rel release

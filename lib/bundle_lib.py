@@ -1,3 +1,24 @@
+# Copyright (c) 2021 TI Tokyo    All Rights Reserved.
+#
+# This file is provided to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file
+# except in compliance with the License.  You may obtain
+# a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# ---------------------------------------------------------------------
+
+# Common functions used in various scripts in riak_cs_service_bundle.
+
+
 import httplib2, subprocess, json, time, re, sys
 
 def _wrap(x, X):
@@ -89,14 +110,6 @@ def find_external_ips(container):
     return ip
 
 
-
-def docker_exec_proc(n, cmd):
-    return subprocess.run(args = ["docker", "exec", "-it", n["container"]] + cmd,
-                          capture_output = True,
-                          encoding = "utf8")
-
-
-
 def create_user(host, name, email):
     url = 'http://%s:%d/riak-cs/user' % (host, 8080)
     print("creating user at", url)
@@ -114,6 +127,7 @@ def create_user(host, name, email):
         except ConnectionRefusedError:
             time.sleep(1)
             retries = retries - 1
+
 
 def get_admin_user(host):
     url = 'http://%s:%d/riak-cs/users' % (host, 8080)
@@ -135,3 +149,18 @@ def get_admin_user(host):
         except ConnectionRefusedError:
             time.sleep(2)
             retries = retries - 1
+
+
+def docker_exec_proc_(n, cmd):
+    return subprocess.run(args = ["docker", "exec", "-it", n["container"]] + cmd,
+                          capture_output = True,
+                          encoding = "utf8")
+
+def docker_exec_proc(n, cmd, error_message = None):
+    p = docker_exec_proc_(n, cmd)
+    if p.returncode != 0:
+        if error_message is None:
+            error_message = "Command %s failed returning %d on node %s (%s):\n%s\n%s\n" % \
+                (" ".join(cmd), p.returncode, n["container"], n["ip"], p.stdout, p.stderr)
+        sys.exit(error_message)
+    return p

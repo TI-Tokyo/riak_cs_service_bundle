@@ -9,3 +9,6 @@ benchmark.log
 load-test-report
 
 __pycache__/
+
+# in repos, we still want R16/Dockerfile (added manually)
+repos/
