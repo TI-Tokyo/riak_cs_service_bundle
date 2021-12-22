@@ -93,9 +93,10 @@ def start_riak_node(node, i):
         print(" ", end = '', flush = True)
 
 def wait_for_services(node, i):
+    riak_admin = _which_riak_admin()
     repeat = 30
     while repeat > 0:
-        p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "admin", "wait-for-service", "riak_kv"])
+        p = docker_exec_proc_(node, riak_admin + ["wait-for-service", "riak_kv"])
         if p.stdout == "riak_kv is up\n":
             break
         else:
@@ -103,7 +104,7 @@ def wait_for_services(node, i):
             repeat = repeat-1
     repeat = 30
     while repeat > 0:
-        p = docker_exec_proc_(node, ["/opt/riak/bin/riak", "admin", "ringready"])
+        p = docker_exec_proc_(node, riak_admin + ["ringready"])
         if p.returncode == 0:
             break
         else:
@@ -132,11 +133,13 @@ def join_riak_nodes(nodes, topo):
             print(p.stdout)
 
 def _which_riak_admin():
-    vsn = os.getenv("RIAK_VSN")[0]
-    if vsn == "2":
+    vsn = os.getenv("RIAK_VSN")
+    if re.match(r"2\..+", vsn):
         return ["/opt/riak/bin/riak-admin"]
-    if vsn == "3":
+    elif re.match(r"riak-3\.0\.[0-9]$", vsn):
         return ["/opt/riak/bin/riak", "admin"]
+    else:
+        return ["/opt/riak/bin/riak-admin"]
 
 
 # riak_cs
