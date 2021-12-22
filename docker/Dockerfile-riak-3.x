@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y libpam0g-dev
 ADD riak-${RIAK_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
-RUN ./rebar3 as rel release
+RUN make rel
 
 FROM debian:buster AS runtime-image
 ARG RIAK_VSN

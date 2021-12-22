@@ -8,7 +8,7 @@ EXPOSE 8080 8000
 ADD riak_cs-${RCS_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
-RUN ./rebar3 as rel release
+RUN make rel
 
 FROM debian:buster AS runtime-image
 

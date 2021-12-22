@@ -7,7 +7,7 @@ EXPOSE 8085
 
 ADD stanchion-${STANCHION_VSN} /usr/src/S
 WORKDIR /usr/src/S
-RUN ./rebar3 as rel release
+RUN make rel
 
 FROM debian:buster AS runtime-image
 
