@@ -68,10 +68,10 @@ R16:
 
 build: sources
 	@(cd docker && \
-	  rsync -a --exclude=.git/ ../repos/riak-$(RIAK_VSN) . && \
-	  rsync -a --exclude=.git/ ../repos/riak_cs-$(RCS_VSN) . && \
-	  rsync -a --exclude=.git/ ../repos/stanchion-$(STANCHION_VSN) . && \
-	  rsync -a --exclude=.git/ ../repos/riak_cs_control-$(RCSC_VSN) . && \
+	  rsync -a ../repos/riak-$(RIAK_VSN) . && \
+	  rsync -a ../repos/riak_cs-$(RCS_VSN) . && \
+	  rsync -a ../repos/stanchion-$(STANCHION_VSN) . && \
+	  rsync -a ../repos/riak_cs_control-$(RCSC_VSN) . && \
 	  COMPOSE_FILE=compose-build.yml \
 	  RIAK_VSN=$(RIAK_VSN) \
 	  RCS_VSN=$(RCS_VSN) \
