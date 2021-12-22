@@ -52,7 +52,8 @@ sources:
 	 cd repos/R16 && test -r $$F || wget https://github.com/basho/otp/archive/refs/tags/$$F)
 
 	@(test -d repos/riak-${RIAK_VSN} || \
-	  ${clone} -b riak-${RIAK_VSN} https://github.com/basho/riak repos/riak-${RIAK_VSN})
+	  ${clone} -b ${RIAK_VSN} \
+	  https://github.com/TI-Tokyo/riak repos/riak-${RIAK_VSN})
 	@(test -d repos/riak_cs-${RCS_VSN} || \
 	  ${clone} -b ${RCS_VSN} \
 	  https://github.com/TI-Tokyo/riak_cs repos/riak_cs-${RCS_VSN})
