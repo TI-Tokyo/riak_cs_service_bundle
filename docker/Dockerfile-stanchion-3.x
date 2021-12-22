@@ -13,7 +13,8 @@ FROM debian:buster AS runtime-image
 
 RUN apt-get update && apt-get -y install libssl1.1
 
-COPY --from=compile-image /usr/src/S/_build/rel/rel/stanchion /opt/stanchion
+COPY --from=compile-image /usr/src/S/rel/stanchion /opt/stanchion
+ENV STANCHION_PATH=/opt/stanchion
 
 # We can't start riak-cs it in CMD because at this moment as we don't
 # yet know riak's addresses -- those are to be allocated by docker

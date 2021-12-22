@@ -15,7 +15,8 @@ ARG RIAK_VSN
 
 RUN apt-get update && apt-get -y install libssl1.1 logrotate sudo
 
-COPY --from=compile-image /usr/src/S/_build/rel/rel/riak /opt/riak
+COPY --from=compile-image /usr/src/S/rel/riak /opt/riak
+ENV RIAK_PATH=/opt/riak
 
 RUN sed -i \
     -e "s|storage_backend = bitcask|storage_backend = multi|" \
