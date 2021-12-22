@@ -67,7 +67,7 @@ def get_rcs_user_creds(node):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-x", "--executable", default = "../s3-benchmark/s3-benchmark", help = "path to benchmark executable")
-    parser.add_argument("-O", "--options", default = "-t 5 -l 10 -d 30", help = "options to benchmark program")
+    parser.add_argument("-O", "--options", default = "-t 3 -l 3 -d 5", help = "options to benchmark program")
     parser.add_argument("-p", "--parallel", action = "store_false", help = "run benchmarks against all riak_cs nodes in parallel")
     parser.add_argument("-n", "--docker_service_name", default = "rcs-tussle-one", help = "docker service name")
     args = parser.parse_args()
