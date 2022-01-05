@@ -90,6 +90,7 @@ def start_riak_node(node, i):
         if p.stdout == "pong\n":
             print(" [%s]" % node["ip"], end = '', flush = True)
             return
+        time.sleep(.5)
         print(" ", end = '', flush = True)
 
 def wait_for_services(node, i):
@@ -215,6 +216,7 @@ def start_rcs_node(node, i, do_restart):
         if p.stdout == "pong\n":
             print(" [%s]" % node["ip"], end = '', flush = True)
             return
+        time.sleep(.5)
         print(" ", end = '', flush = True)
 
 
@@ -256,6 +258,7 @@ def start_stanchion_node(node, i, do_restart):
         if docker_exec_proc_(node, ["/opt/stanchion/bin/stanchion", "ping"]).stdout == "pong\n":
             print(" [%s]" % node["ip"], end = '', flush = True)
             return
+        time.sleep(.5)
         print(" ", end = '', flush = True)
 
 
