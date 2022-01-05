@@ -9,16 +9,16 @@ With `make start`, you will get riak\_cs, stanchion, riak\_cs\_control
 and riak images created and their containers started, all properly
 configured.  Applications versions can be defined in environment
 variables `RIAK_VSN`, `RCS_VSN`, `RCSC_VSN` and `STANCHION_VSN` (with
-"3.0.8", "3.0.0pre8", "3.0.0pre3", "3.0.0pre8", respectively, as
-defaults).  Images for riak\_cs, riak\_cs\_control and stanchion are
-built from source, pulled from repos at github.com/basho (riak) and
-github.com/TI-Tokyo (rest).
+"riak-3.0.9" for riak, "3.0.0" for the rest, as defaults).  Images for
+riak\_cs, riak\_cs\_control and stanchion are built from source,
+pulled from repos at github.com/TI-Tokyo.
 
 External addresses of Riak CS nodes and the node running Riak CS
 Control will be printed at the end of `make start`.  Also, an admin user
 will be created whose credentials can be copied and used in your s3 client.
 
-The entire stack can be stopped with `make stop`.
+The entire stack can be stopped with `make stop`, and all riak data
+dirs deleted with `make clean`.
 
 ### Older versions of riak and riak_cs
 
