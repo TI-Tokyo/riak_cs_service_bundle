@@ -9,19 +9,20 @@ RCSC_VSN            ?= 3.0.0
 # the standard erlang:22.x base image (for 3.x tags), or the image
 # with R16 that we have built specially (for 2.x tags)
 
-ifneq ($(RIAK_VSN:2.%=xx%), $(RIAK_VSN))
+RIAK_VSN_NUM = $(subst riak-,,$(subst riak_kv-,,$(RIAK_VSN)))
+ifneq ($(patsubst 2.%,xx,$(RIAK_VSN_NUM)), $(RIAK_VSN_NUM))
 RIAK_DOCKERFILE := Dockerfile-riak-2.x
 else
 RIAK_DOCKERFILE := Dockerfile-riak-3.x
 endif
 
-ifneq ($(RCS_VSN:2.%=xx%), $(RCS_VSN))
+ifneq ($(RCS_VSN:2.%=xx), $(RCS_VSN))
 RCS_DOCKERFILE := Dockerfile-riak_cs-2.x
 else
 RCS_DOCKERFILE := Dockerfile-riak_cs-3.x
 endif
 
-ifneq ($(STANCHION_VSN:2.%=xx%), $(STANCHION_VSN))
+ifneq ($(STANCHION_VSN:2.%=xx), $(STANCHION_VSN))
 STANCHION_DOCKERFILE := Dockerfile-stanchion-2.x
 else
 STANCHION_DOCKERFILE := Dockerfile-stanchion-3.x
