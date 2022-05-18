@@ -85,7 +85,7 @@ build: sources
 	  RCS_DOCKERFILE=$(RCS_DOCKERFILE) \
 	  RCSC_DOCKERFILE=$(RCSC_DOCKERFILE) \
 	  STANCHION_DOCKERFILE=$(STANCHION_DOCKERFILE) \
-	  docker-compose build \
+	  docker compose build \
 	    --build-arg RIAK_VSN=$(RIAK_VSN) \
 	    --build-arg RCS_VSN=$(RCS_VSN) \
 	    --build-arg RCSC_VSN=$(RCSC_VSN) \
