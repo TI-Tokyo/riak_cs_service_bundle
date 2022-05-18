@@ -41,6 +41,9 @@ N_STANCHION_NODES ?= $(shell ./lib/nodes_from_topo stanchion)
 N_RCSC_NODES      ?= $(shell ./lib/nodes_from_topo rcsc)
 RCS_AUTH_V4       ?= on
 
+RCS_BACKEND_1     ?= eleveldb
+RCS_BACKEND_2     ?= bitcask
+
 DOCKER_SERVICE_NAME ?= rcs-tussle-one
 
 clone := git -c advice.detachedHead=false clone --depth 1
@@ -86,8 +89,13 @@ build: sources
 	    --build-arg RIAK_VSN=$(RIAK_VSN) \
 	    --build-arg RCS_VSN=$(RCS_VSN) \
 	    --build-arg RCSC_VSN=$(RCSC_VSN) \
-	    --build-arg STANCHION_VSN=$(STANCHION_VSN) && \
-	  rm -rf riak-$(RIAK_VSN) riak_cs-$(RCS_VSN) stanchion-$(STANCHION_VSN) riak_cs_control-$(RCSC_VSN))
+	    --build-arg STANCHION_VSN=$(STANCHION_VSN) \
+	    --build-arg RCS_BACKEND_1=$(RCS_BACKEND_1) \
+	    --build-arg RCS_BACKEND_2=$(RCS_BACKEND_2) && \
+	  rm -rf riak-$(RIAK_VSN) \
+	         riak_cs-$(RCS_VSN) \
+	         stanchion-$(STANCHION_VSN) \
+	         riak_cs_control-$(RCSC_VSN))
 
 
 start: build ensure-dirs

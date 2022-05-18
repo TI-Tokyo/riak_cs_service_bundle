@@ -12,6 +12,8 @@ RUN make rel
 
 FROM debian:buster AS runtime-image
 ARG RIAK_VSN
+ARG RCS_BACKEND_1
+ARG RCS_BACKEND_2
 
 RUN apt-get update && apt-get -y install libssl1.1 logrotate sudo
 
@@ -21,15 +23,16 @@ ENV RIAK_PATH=/opt/riak
 RUN sed -i \
     -e "s|storage_backend = bitcask|storage_backend = multi|" \
     /opt/riak/etc/riak.conf
-RUN echo "buckets.default.allow_mult = true\nbuckets.default.merge_strategy = 2\n" >>/opt/riak/etc/riak.conf
+RUN echo "buckets.default.allow_mult = true\nbuckets.default.merge_strategy = 2\n" \
+    >>/opt/riak/etc/riak.conf
 
 RUN sed -i \
     -e "s|]\\.|, \
     {riak_kv, [ \
       {multi_backend, \
-          [{be_default,riak_kv_eleveldb_backend, \
+          [{be_default,riak_kv_${RCS_BACKEND_1}_backend, \
                [{max_open_files,20}]}, \
-           {be_blocks,riak_kv_bitcask_backend, \
+           {be_blocks,riak_kv_${RCS_BACKEND_2}_backend, \
                []}]}, \
       {multi_backend_default,be_default}, \
       {multi_backend_prefix_list,[{<<\"0b:\">>,be_blocks}]}, \
