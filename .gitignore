@@ -1,14 +1,12 @@
 p/
 R16/*.gz
 R16/*.bz2
-riak/riak-*/
-riak_cs/riak_cs-*/
-riak_cs_control/riak_cs_control-*/
-stanchion/stanchion-*/
 benchmark.log
 load-test-report
 
-__pycache__/
+lib/__pycache__/
+riak-topo.json
+rcs-topo.json
 
 # in repos, we still want R16/Dockerfile (added manually)
 repos/
