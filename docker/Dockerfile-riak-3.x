@@ -3,7 +3,7 @@ ARG RIAK_VSN
 
 EXPOSE 8087 8098 9080
 
-RUN apt-get update && apt-get install -y libpam0g-dev
+RUN apt-get update && apt-get install -y libpam0g-dev cmake
 
 ADD riak-${RIAK_VSN} /usr/src/S
 WORKDIR /usr/src/S
