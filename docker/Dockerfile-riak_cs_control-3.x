@@ -14,7 +14,8 @@ EXPOSE 8090
 ADD riak_cs_control-${RCSC_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
-RUN ./rebar3 as rel release
+RUN git config --global url."https://".insteadOf git://
+RUN make rel
 
 FROM debian:buster AS runtime-image
 ARG CS_HOST \
