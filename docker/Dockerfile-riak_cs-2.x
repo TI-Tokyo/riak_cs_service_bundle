@@ -3,7 +3,7 @@ ARG RCS_VSN
 
 EXPOSE 8080 8000
 
-RUN apt-get install -y git wget g++ libpam0g-dev
+RUN apt-get update && install -y git wget g++ libpam0g-dev
 
 ADD riak_cs-${RCS_VSN} /usr/src/S
 WORKDIR /usr/src/S
