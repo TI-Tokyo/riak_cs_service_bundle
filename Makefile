@@ -1,8 +1,8 @@
 .PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
 RIAK_VSN       	    ?= riak-3.0.9
-RCS_VSN    	    ?= 3.0.0rc19
-STANCHION_VSN  	    ?= 3.0.0rc19
+RCS_VSN    	    ?= 3.0.0
+STANCHION_VSN  	    ?= 3.0.0
 RCSC_VSN            ?= 3.0.1
 
 # select Dockerfiles. For apps that we build ourself, we use either
