@@ -1,7 +1,7 @@
 .PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
 RIAK_VSN       	    ?= riak-3.0.9
-RCS_VSN    	    ?= 3.0.0
+RCS_VSN    	    ?= 3.1.0rc2
 STANCHION_VSN  	    ?= 3.0.0
 RCSC_VSN            ?= 3.0.1
 
@@ -19,7 +19,12 @@ endif
 ifneq ($(RCS_VSN:2.%=xx), $(RCS_VSN))
 RCS_DOCKERFILE := Dockerfile-riak_cs-2.x
 else
-RCS_DOCKERFILE := Dockerfile-riak_cs-3.x
+ifneq ($(RCS_VSN:3.0.%=xx), $(RCS_VSN))
+RCS_DOCKERFILE := Dockerfile-riak_cs-3.0.x
+COMPOSE_FILE_VERSION := 3.0
+else
+RCS_DOCKERFILE := Dockerfile-riak_cs-3.1.x
+COMPOSE_FILE_VERSION := 3.1
 endif
 
 ifneq ($(STANCHION_VSN:2.%=xx), $(STANCHION_VSN))
@@ -76,7 +81,7 @@ build: sources
 	  rsync -a ../repos/riak_cs-$(RCS_VSN) . && \
 	  rsync -a ../repos/stanchion-$(STANCHION_VSN) . && \
 	  rsync -a ../repos/riak_cs_control-$(RCSC_VSN) . && \
-	  COMPOSE_FILE=compose-build.yml \
+	  COMPOSE_FILE=compose-build-$(COMPOSE_FILE_VERSION).yml \
 	  RIAK_VSN=$(RIAK_VSN) \
 	  RCS_VSN=$(RCS_VSN) \
 	  RCSC_VSN=$(RCSC_VSN) \
@@ -114,7 +119,7 @@ start: build ensure-dirs
 	 N_STANCHION_NODES=$(N_STANCHION_NODES) \
 	 N_RCSC_NODES=$(N_RCSC_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
-	 && docker stack deploy -c docker/compose-run.yml $(DOCKER_SERVICE_NAME) \
+	 && docker stack deploy -c docker/compose-run-$(COMPOSE_FILE_VERSION).yml $(DOCKER_SERVICE_NAME) \
 	 && ./lib/prepare-tussle \
 		$(DOCKER_SERVICE_NAME) \
 		$(N_RIAK_NODES) $(N_RCS_NODES) $(N_STANCHION_NODES) $(N_RCSC_NODES) \

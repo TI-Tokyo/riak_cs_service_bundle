@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+
+  riak:
+    networks:
+      net0:
+        aliases:
+          - riak
+    ports:
+      - "8087:8087"
+      - "8098:8098"
+      - "9080:9080"
+    image: "rcs_bundle_riak.${RIAK_VSN}"
+    volumes:
+      - type: bind
+        source: ${RIAK_PLATFORM_DIR}/data
+        target: /opt/riak/data
+      - type: bind
+        source: ${RIAK_PLATFORM_DIR}/log
+        target: /opt/riak/log
+    deploy:
+      replicas: ${N_RIAK_NODES}
+
+  riak_cs:
+    networks:
+      net0:
+        aliases:
+          - riak_cs
+    ports:
+      - "8080:8080"
+      - "8000:8000"
+      - "8085:8085"
+    image: "rcs_bundle_riak_cs.${RCS_VSN}"
+    deploy:
+      replicas: ${N_RCS_NODES}
+
+  riak_cs_control:
+    networks:
+      net0:
+        aliases:
+          - riak_cs_control
+    ports:
+      - "8090:8090"
+    image: "rcs_bundle_riak_cs_control.${RCSC_VSN}"
+    deploy:
+      replicas: ${N_RCSC_NODES}
+
+networks:
+  net0:
+    attachable: true
