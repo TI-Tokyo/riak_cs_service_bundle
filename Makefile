@@ -1,7 +1,7 @@
 .PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
-RIAK_VSN       	    ?= riak-3.0.9
-RCS_VSN    	    ?= 3.1.0rc2
+RIAK_VSN       	    ?= riak-3.0.15
+RCS_VSN    	    ?= 3.1.0
 STANCHION_VSN  	    ?= 3.0.0
 RCSC_VSN            ?= 3.0.1
 
@@ -27,10 +27,16 @@ RCS_DOCKERFILE := Dockerfile-riak_cs-3.1.x
 COMPOSE_FILE_VERSION := 3.1
 endif
 
+ifneq ($(RCS_VSN:3.1.%=xx), $(RCS_VSN))
+HAVE_STANCHION := yes
+else
+HAVE_STANCHION := no
 ifneq ($(STANCHION_VSN:2.%=xx), $(STANCHION_VSN))
 STANCHION_DOCKERFILE := Dockerfile-stanchion-2.x
 else
 STANCHION_DOCKERFILE := Dockerfile-stanchion-3.x
+endif
+endif
 endif
 
 # old riak-cs-control won't build with R16
@@ -65,7 +71,7 @@ sources:
 	  https://github.com/TI-Tokyo/riak repos/riak-${RIAK_VSN})
 	@(test -d repos/riak_cs-${RCS_VSN} || \
 	  ${clone} -b ${RCS_VSN} \
-	  https://github.com/TI-Tokyo/riak_cs repos/riak_cs-${RCS_VSN})
+	  https://github.com/hmmr/riak_cs repos/riak_cs-${RCS_VSN})
 	@(test -d repos/stanchion-${STANCHION_VSN} || \
 	  ${clone} -b ${STANCHION_VSN} \
 	  https://github.com/TI-Tokyo/stanchion repos/stanchion-${STANCHION_VSN})
@@ -123,7 +129,8 @@ start: build ensure-dirs
 	 && ./lib/prepare-tussle \
 		$(DOCKER_SERVICE_NAME) \
 		$(N_RIAK_NODES) $(N_RCS_NODES) $(N_STANCHION_NODES) $(N_RCSC_NODES) \
-		$(RCS_AUTH_V4)
+		$(RCS_AUTH_V4) \
+		$(HAVE_STANCHION)
 
 stop:
 	@docker stack rm $(DOCKER_SERVICE_NAME)

@@ -3,12 +3,11 @@ ARG RCS_VSN
 FROM erlang:24 AS compile-image
 ARG RCS_VSN
 
-EXPOSE 8080 8000
+EXPOSE 8080 8000 8085
 
 ADD riak_cs-${RCS_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
-RUN git config --global url."https://".insteadOf git://
 RUN make rel
 
 FROM debian:latest AS runtime-image

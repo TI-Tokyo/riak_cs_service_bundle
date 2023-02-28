@@ -19,7 +19,7 @@
 # Common functions used in various scripts in riak_cs_service_bundle.
 
 
-import httplib2, subprocess, json, time, re, sys
+import httplib2, subprocess, json, time, re, sys, ipaddress
 
 def _wrap(x, X):
     if x > X:
@@ -98,7 +98,7 @@ def discover_nodes(tussle_name, pattern, required_nodes = 0):
             return sorted(res, key = lambda x: x["container"])
 
 
-def find_external_ips(container):
+def find_external_ip(container):
     p = subprocess.run(args = ["docker", "container", "inspect", container],
                        capture_output = True,
                        encoding = 'utf8')
@@ -108,6 +108,14 @@ def find_external_ips(container):
                        encoding = 'utf8')
     ip = json.loads(p.stdout)[0]["Containers"][cid]["IPv4Address"].split("/")[0]
     return ip
+
+def get_local_subnet():
+    p = subprocess.run(args = ["docker", "network", "inspect", "docker_gwbridge"],
+                       capture_output = True,
+                       encoding = 'utf8')
+    subnet = json.loads(p.stdout)[0]["IPAM"]["Config"][0]["Subnet"]
+    return (str(ipaddress.ip_network(subnet).network_address),
+            str(ipaddress.ip_network(subnet).netmask))
 
 
 def create_user(host, name, email):

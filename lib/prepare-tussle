@@ -98,7 +98,7 @@ def wait_for_services(node, i):
     repeat = 30
     while repeat > 0:
         p = docker_exec_proc_(node, riak_admin + ["wait-for-service", "riak_kv"])
-        if p.stdout == "riak_kv is up\n":
+        if p.stdout == "riak_kv is up":
             break
         else:
             time.sleep(.5)
@@ -137,7 +137,7 @@ def _which_riak_admin():
     vsn = os.getenv("RIAK_VSN")
     if re.match(r"2\..+", vsn):
         return ["/opt/riak/bin/riak-admin"]
-    elif re.match(r"riak-3\.0\.[0-9]$", vsn):
+    elif re.match(r"riak-3\.0\.[0-9]+$", vsn):
         return ["/opt/riak/bin/riak", "admin"]
     else:
         return ["/opt/riak/bin/riak-admin"]
@@ -146,7 +146,7 @@ def _which_riak_admin():
 # riak_cs
 # =======================
 
-def preconfigure_rcs_nodes(nodes_annotated):
+def preconfigure_rcs_nodes_with_standalone_stanchion(nodes_annotated):
     n = 1
     print("Configuring Riak CS nodes:")
     for (cn, rn, sn) in nodes_annotated:
@@ -158,6 +158,25 @@ def preconfigure_rcs_nodes(nodes_annotated):
                               "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
                               "-e", "s|stanchion_host = .+|stanchion_host = %s:8085|" % sn["ip"],
                               "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
+                              "/opt/riak-cs/etc/riak-cs.conf"])
+        n = n + 1
+    print()
+
+def preconfigure_rcs_nodes(nodes_annotated):
+    network, mask = get_local_subnet()
+    n = 1
+    print("Configuring Riak CS nodes:")
+    for (cn, rn) in nodes_annotated:
+        nodename = "riak_cs@" + cn["ip"]
+        print("  %d: %s->%s" % (n, cn["ip"], rn["ip"]))
+        docker_exec_proc(cn, ["sed", "-i", "-E",
+                              "-e", "s|nodename = .+|nodename = %s|" % nodename,
+                              "-e", "s|listener = .+|listener = 0.0.0.0:8080|",
+                              "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
+                              "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
+                              "-e", "s|stanchion\.listener = .+|stanchion.listener = %s:8085|" % find_external_ip(cn["container"]),
+                              "-e", "s|stanchion_subnet = .+|stanchion_subnet = %s|" % network,
+                              "-e", "s|stanchion_netmask = .+|stanchion_netmask = %s|" % mask,
                               "/opt/riak-cs/etc/riak-cs.conf"])
         n = n + 1
     print()
@@ -293,22 +312,27 @@ def main():
     required_stanchion_nodes = int(sys.argv[4])
     required_rcsc_nodes = int(sys.argv[5])
     auth_v4 = sys.argv[6]
+    have_stanchion = ("true" == sys.argv[7])
 
     print("Discovering nodes")
     riak_nodes = discover_nodes(tussle_name, "riak", required_riak_nodes)
     print("  riak:", ", ".join([n["ip"] for n in riak_nodes]))
     rcs_nodes = discover_nodes(tussle_name, "riak_cs", required_rcs_nodes)
     print("  riak_cs:", ", ".join([n["ip"] for n in rcs_nodes]))
-    stanchion_nodes = discover_nodes(tussle_name, "stanchion", required_stanchion_nodes)
-    print("  stanchion:", ", ".join([n["ip"] for n in stanchion_nodes]))
-    rcsc_nodes      = discover_nodes(tussle_name, "riak_cs_control", required_rcsc_nodes)
+    if have_stanchion:
+        stanchion_nodes = discover_nodes(tussle_name, "stanchion", required_stanchion_nodes)
+        print("  stanchion:", ", ".join([n["ip"] for n in stanchion_nodes]))
+    else:
+        stanchion_nodes = []
+        print("  (no stanchion in this tussle)")
+    rcsc_nodes = discover_nodes(tussle_name, "riak_cs_control", required_rcsc_nodes)
     print("  riak_cs_control:", ", ".join([n["ip"] for n in rcsc_nodes]))
 
     riak_topo, rcs_topo = get_topologies()
 
-    riak_ext_ips = [find_external_ips(c["container"]) for c in riak_nodes]
-    rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
-    rcsc_ext_ips = [find_external_ips(c["container"]) for c in rcsc_nodes]
+    riak_ext_ips = [find_external_ip(c["container"]) for c in riak_nodes]
+    rcs_ext_ips = [find_external_ip(c["container"]) for c in rcs_nodes]
+    rcsc_ext_ips = [find_external_ip(c["container"]) for c in rcsc_nodes]
 
     have_old_data = check_preexisting_riak_data(riak_nodes)
 
@@ -319,16 +343,22 @@ def main():
     # first, we configure and start the tussle with
     # anonymous_user_creation = on in riak-cs.conf, strictly and
     # specifically to enable us to create an admin user
-    preconfigure_rcs_nodes(
-        [(rcs_nodes[i-1],
-          riak_nodes[rcs_topo[str(i)] - 1],
-          stanchion_nodes[stanchion_node_id_for_rcs(i, riak_topo, rcs_topo) - 1])
-         for i in range(1, 1+len(rcs_nodes))])
-    preconfigure_stanchion_nodes(
-        zip(stanchion_nodes,
-            [riak_nodes[n[0]-1] for n in riak_topo.values()]))
-    start_stanchion_nodes(
-        stanchion_nodes)
+    if have_stanchion:
+        preconfigure_rcs_nodes_with_standalone_stanchion(
+            [(rcs_nodes[i-1],
+              riak_nodes[rcs_topo[str(i)] - 1],
+              stanchion_nodes[stanchion_node_id_for_rcs(i, riak_topo, rcs_topo) - 1])
+             for i in range(1, 1+len(rcs_nodes))])
+        preconfigure_stanchion_nodes(
+            zip(stanchion_nodes,
+                [riak_nodes[n[0]-1] for n in riak_topo.values()]))
+        start_stanchion_nodes(
+            stanchion_nodes)
+    else:
+        preconfigure_rcs_nodes(
+            [(rcs_nodes[i-1],
+              riak_nodes[rcs_topo[str(i)] - 1])
+             for i in range(1, 1+len(rcs_nodes))])
 
     admin_users = {}
     if not have_old_data:
@@ -371,10 +401,11 @@ def main():
                      admin_user["key_id"], admin_user["key_secret"]))
             admin_users |= {rcs_node["ip"]: admin_user}
 
-    finalize_stanchion_configs(
-        zip(stanchion_nodes, admin_users.values()))
-    start_stanchion_nodes(
-        stanchion_nodes, do_restart = True)
+    if have_stanchion:
+        finalize_stanchion_configs(
+            zip(stanchion_nodes, admin_users.values()))
+        start_stanchion_nodes(
+            stanchion_nodes, do_restart = True)
 
     finalize_rcs_configs(
         zip(rcs_nodes, expand_to_all_rcs_nodes(admin_users, rcs_nodes).items()), auth_v4)
