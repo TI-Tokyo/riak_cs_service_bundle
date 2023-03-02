@@ -76,7 +76,7 @@ def main():
 
     rcs_nodes = discover_nodes(tussle_name, "riak_cs")
     rcsc_nodes = discover_nodes(tussle_name, "riak_cs_control")
-    rcs_ext_ips = [find_external_ips(c["container"]) for c in rcs_nodes]
+    rcs_ext_ips = [find_external_ip(c["container"]) for c in rcs_nodes]
     creds = expand_to_all_rcs_nodes(
         dict([get_rcs_user_creds(n) for n in rcsc_nodes]),
         rcs_nodes)

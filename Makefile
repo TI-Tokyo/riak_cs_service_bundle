@@ -71,7 +71,7 @@ sources:
 	  https://github.com/TI-Tokyo/riak repos/riak-${RIAK_VSN})
 	@(test -d repos/riak_cs-${RCS_VSN} || \
 	  ${clone} -b ${RCS_VSN} \
-	  https://github.com/hmmr/riak_cs repos/riak_cs-${RCS_VSN})
+	  https://github.com/TI-Tokyo/riak_cs repos/riak_cs-${RCS_VSN})
 	@(test -d repos/stanchion-${STANCHION_VSN} || \
 	  ${clone} -b ${STANCHION_VSN} \
 	  https://github.com/TI-Tokyo/stanchion repos/stanchion-${STANCHION_VSN})
