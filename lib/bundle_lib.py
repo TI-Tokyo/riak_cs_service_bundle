@@ -19,13 +19,17 @@
 # Common functions used in various scripts in riak_cs_service_bundle.
 
 
-import httplib2, subprocess, json, time, re, sys, ipaddress
+import httplib2, subprocess, json, time, re, sys, os, ipaddress, semver
 
 def _wrap(x, X):
     if x > X:
         return wrap(x - X, X)
     else:
         return x
+
+def rcs_needs_stanchion():
+    v = re.search('\d+\.\d+\.\d+', os.getenv("RCS_VSN")).group(0)
+    return semver.compare(v, "3.1.0") < 0
 
 def get_topologies():
     riak_topo_from = "riak-topo.json"

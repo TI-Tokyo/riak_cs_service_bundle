@@ -125,12 +125,10 @@ start: build ensure-dirs
 	 N_STANCHION_NODES=$(N_STANCHION_NODES) \
 	 N_RCSC_NODES=$(N_RCSC_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
+	 RCS_AUTH_V4=$(RCS_AUTH_V4) \
+	 HAVE_STANCHION=$(HAVE_STANCHION) \
 	 && docker stack deploy -c docker/compose-run-$(COMPOSE_FILE_VERSION).yml $(DOCKER_SERVICE_NAME) \
-	 && ./lib/prepare-tussle \
-		$(DOCKER_SERVICE_NAME) \
-		$(N_RIAK_NODES) $(N_RCS_NODES) $(N_STANCHION_NODES) $(N_RCSC_NODES) \
-		$(RCS_AUTH_V4) \
-		$(HAVE_STANCHION)
+	 && ./lib/prepare-tussle $(DOCKER_SERVICE_NAME)
 
 stop:
 	@docker stack rm $(DOCKER_SERVICE_NAME)

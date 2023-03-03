@@ -23,7 +23,7 @@
 # separately.
 
 
-import json, sys, os, time, subprocess, multiprocessing
+import json, sys, os, time, subprocess, multiprocessing, semver
 from bundle_lib import *
 
 # riak
@@ -134,10 +134,10 @@ def join_riak_nodes(nodes, topo):
             print(p.stdout)
 
 def _which_riak_admin():
-    vsn = os.getenv("RIAK_VSN")
-    if re.match(r"2\..+", vsn):
+    vsn = semver.VersionInfo.parse(os.getenv("RIAK_VSN")[5:])
+    if vsn.major == 2:
         return ["/opt/riak/bin/riak-admin"]
-    elif re.match(r"riak-3\.0\.[0-9]+$", vsn):
+    elif vsn.major == 3:
         return ["/opt/riak/bin/riak", "admin"]
     else:
         return ["/opt/riak/bin/riak-admin"]
@@ -307,19 +307,19 @@ def start_rcsc_node(node_annotated, i):
 
 def main():
     tussle_name = sys.argv[1]
-    required_riak_nodes = int(sys.argv[2])
-    required_rcs_nodes = int(sys.argv[3])
-    required_stanchion_nodes = int(sys.argv[4])
-    required_rcsc_nodes = int(sys.argv[5])
-    auth_v4 = sys.argv[6]
-    have_stanchion = ("true" == sys.argv[7])
+    required_riak_nodes = int(os.getenv('N_RIAK_NODES'))
+    required_rcs_nodes = int(os.getenv('N_RCS_NODES'))
+    required_stanchion_nodes = int(os.getenv('N_STANCHION_NODES'))
+    required_rcsc_nodes = int(os.getenv('N_RCSC_NODES'))
+    auth_v4 = os.getenv('RCS_AUTH_V4')
+    have_stanchion = rcs_needs_stanchion()
 
     print("Discovering nodes")
     riak_nodes = discover_nodes(tussle_name, "riak", required_riak_nodes)
     print("  riak:", ", ".join([n["ip"] for n in riak_nodes]))
     rcs_nodes = discover_nodes(tussle_name, "riak_cs", required_rcs_nodes)
     print("  riak_cs:", ", ".join([n["ip"] for n in rcs_nodes]))
-    if have_stanchion:
+    if have_stanchion == True:
         stanchion_nodes = discover_nodes(tussle_name, "stanchion", required_stanchion_nodes)
         print("  stanchion:", ", ".join([n["ip"] for n in stanchion_nodes]))
     else:
