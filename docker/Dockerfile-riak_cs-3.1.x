@@ -12,7 +12,7 @@ RUN make rel
 
 FROM debian:latest AS runtime-image
 
-RUN apt-get update && apt-get -y install libssl1.1
+RUN apt-get update && apt-get -y install libssl1.1 nano less iputils-ping net-tools
 
 COPY --from=compile-image /usr/src/S/rel/riak-cs /opt/riak-cs
 ENV RCS_PATH=/opt/riak-cs
