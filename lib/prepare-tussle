@@ -199,7 +199,7 @@ def restore_rcs_advanced_config(node):
 
 
 def finalize_rcs_configs(nodes_annotated, auth_v4):
-    print("Reonfiguring Riak CS nodes")
+    print("Reconfiguring Riak CS nodes")
     if auth_v4:
         auth_v4_conf = "on"
         auth_v4_erl = "true"
@@ -428,7 +428,7 @@ def main():
         print("  %s (%s) -> %s" % (rcs_ext_ips[int(i)-1], rcs_nodes[int(i)-1]["ip"], riak_ext_ips[rcs_topo[i]-1]))
     print("\nRiak CS Control addresses:")
     for i in rcsc_ext_ips:
-        print("  %s" % i)
+        print("  http://%s:8090" % i)
 
 
 if __name__ == "__main__":
