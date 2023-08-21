@@ -6,18 +6,19 @@ ARG RCSC_VSN=3.0.0 \
     CS_ADMIN_KEY="admin-key" \
     CS_ADMIN_SECRET="admin-secret"
 
-FROM erlang:22 AS compile-image
+FROM erlang:25 AS compile-image
 ARG RCSC_VSN
+
+RUN apt-get update && apt-get install -y libssl-dev
 
 EXPOSE 8090
 
 ADD riak_cs_control-${RCSC_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
-RUN git config --global url."https://".insteadOf git://
 RUN make rel
 
-FROM debian:buster AS runtime-image
+FROM debian:bullseye AS runtime-image
 ARG CS_HOST \
     CS_PORT \
     CS_PROTO \

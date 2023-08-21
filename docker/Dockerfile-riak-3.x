@@ -1,22 +1,21 @@
-FROM erlang:22 AS compile-image
+FROM erlang:25 AS compile-image
 ARG RIAK_VSN
 
 EXPOSE 8087 8098 9080
 
-RUN apt-get update && apt-get install -y libpam0g-dev cmake
+RUN apt-get update && apt-get install -y libssl-dev libpam0g-dev cmake
 
 ADD riak-${RIAK_VSN} /usr/src/S
 WORKDIR /usr/src/S
 
-RUN git config --global url."https://".insteadOf git://
 RUN make rel
 
-FROM debian:buster AS runtime-image
+FROM debian:bullseye AS runtime-image
 ARG RIAK_VSN
 ARG RCS_BACKEND_1
 ARG RCS_BACKEND_2
 
-RUN apt-get update && apt-get -y install libssl1.1 logrotate sudo
+RUN apt-get update && apt-get -y install libssl1.1
 
 COPY --from=compile-image /usr/src/S/rel/riak /opt/riak
 ENV RIAK_PATH=/opt/riak
