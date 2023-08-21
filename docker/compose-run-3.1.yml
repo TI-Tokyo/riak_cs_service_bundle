@@ -31,6 +31,10 @@ services:
       - "8000:8000"
       - "8085:8085"
     image: "rcs_bundle_riak_cs.${RCS_VSN}"
+    volumes:
+      - type: bind
+        source: ${RCS_PLATFORM_DIR}/log
+        target: /opt/riak-cs/log
     deploy:
       replicas: ${N_RCS_NODES}
 

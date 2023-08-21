@@ -44,7 +44,8 @@ endif
 RCSC_DOCKERFILE := Dockerfile-riak_cs_control-3.x
 
 
-RIAK_PLATFORM_DIR ?= $(shell pwd)/p
+RIAK_PLATFORM_DIR ?= $(shell pwd)/p/riak
+RCS_PLATFORM_DIR ?= $(shell pwd)/p/riak_cs
 
 N_RIAK_NODES      ?= $(shell ./lib/nodes_from_topo riak)
 N_RCS_NODES       ?= $(shell ./lib/nodes_from_topo rcs)
@@ -125,6 +126,7 @@ start: build ensure-dirs
 	 N_STANCHION_NODES=$(N_STANCHION_NODES) \
 	 N_RCSC_NODES=$(N_RCSC_NODES) \
 	 RIAK_PLATFORM_DIR=$(RIAK_PLATFORM_DIR) \
+	 RCS_PLATFORM_DIR=$(RCS_PLATFORM_DIR) \
 	 RCS_AUTH_V4=$(RCS_AUTH_V4) \
 	 HAVE_STANCHION=$(HAVE_STANCHION) \
 	 && docker stack deploy -c docker/compose-run-$(COMPOSE_FILE_VERSION).yml $(DOCKER_SERVICE_NAME) \
@@ -132,11 +134,11 @@ start: build ensure-dirs
 
 stop:
 	@docker stack rm $(DOCKER_SERVICE_NAME)
-	@echo "Waiting until containers are stopped.."
+	@echo "Waiting until containers are stopped..."
 	@docker container ls --filter "name=rcs-tussle-one" --format='{{.Names}}' | xargs docker wait >/dev/null 2>&1 || :
 
 ensure-dirs:
-	@mkdir -p $(RIAK_PLATFORM_DIR){/data,/log}
+	@mkdir -p $(RIAK_PLATFORM_DIR){/data,/log} $(RCS_PLATFORM_DIR)/log
 
 clean: stop
-	@sudo rm -rf $(RIAK_PLATFORM_DIR)
+	@sudo rm -rf $(RIAK_PLATFORM_DIR) $(RCS_PLATFORM_DIR)/log
