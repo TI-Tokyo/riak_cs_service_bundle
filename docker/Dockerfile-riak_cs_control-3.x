@@ -31,7 +31,9 @@ ENV CS_HOST=${CS_HOST} \
     CS_PROTO=${CS_PROTO:-http} \
     CS_CONTROL_PORT=${CS_CONTROL_PORT:-8090} \
     CS_ADMIN_KEY=${CS_ADMIN_KEY:-"admin-key"} \
-    CS_ADMIN_SECRET=${CS_ADMIN_SECRET:-"admin-secret"}
+    CS_ADMIN_SECRET=${CS_ADMIN_SECRET:-"admin-secret"} \
+    LOG_DIR=/opt/riak_cs_control/log \
+    LOGGER_LEVEL=info
 
 RUN apt-get update && apt-get -y install libssl1.1
 
