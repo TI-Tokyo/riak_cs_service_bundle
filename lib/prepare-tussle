@@ -173,6 +173,8 @@ def preconfigure_rcs_nodes(nodes_annotated):
                               "-e", "s|nodename = .+|nodename = %s|" % nodename,
                               "-e", "s|listener = .+|listener = 0.0.0.0:8080|",
                               "-e", "s|riak_host = .+|riak_host = %s:8087|" % rn["ip"],
+                              "-e", "s|log\.access\.dir = .+|log.access.dir = /opt/riak-cs/log/%d|" % n,
+                              "-e", "s|logger\.file = .+|logger.file = /opt/riak-cs/log/%d/console.log|" % n,
                               "-e", "s|anonymous_user_creation = .+|anonymous_user_creation = off|",
                               "-e", "s|stanchion\.listener = .+|stanchion.listener = %s:8085|" % find_external_ip(cn["container"]),
                               "-e", "s|stanchion_subnet = .+|stanchion_subnet = %s|" % network,
