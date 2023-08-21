@@ -375,7 +375,23 @@ def main():
             enable_anon_user_creation(rcs_node)
             start_rcs_nodes([rcs_node])
             rcs_ext_ip = rcs_ext_ips[int(rcs_node_id) - 1]
-            admin_user = create_user(rcs_ext_ip, admin_name, admin_email)
+
+            vsn = semver.VersionInfo.parse(
+                re.search(r"\d+\.\d+\.\d+", os.getenv("RCS_VSN")).group(0))
+            if vsn.major * 100 + vsn.minor >= 302:
+                p = docker_exec_proc(rcs_node, ["/opt/riak-cs/priv/tools/create-admin",
+                                                "-u"+admin_name,
+                                                "-e"+admin_email,
+                                                "-q"])
+                [a1, a2, a3] = p.stdout.split(" ")
+                admin_user = {
+                    'key_id': a1,
+                    'key_secret': a2,
+                    'id': a3
+                }
+            else:
+                admin_user = create_user(rcs_ext_ip, admin_name, admin_email)
+
             print("\nOn Riak CS node %s (backed by %s), admin user (%s <%s>) with creds:\n"
                   "  key_id: %s\n  key_secret: %s\n"
                   % (rcs_ext_ip, c, admin_name, admin_email,

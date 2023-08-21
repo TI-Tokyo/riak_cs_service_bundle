@@ -1,9 +1,9 @@
 .PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
-RIAK_VSN       	    ?= riak-3.0.15
-RCS_VSN    	    ?= 3.1.0
+RIAK_VSN       	    ?= riak-3.2.0
+RCS_VSN    	    ?= 3.2.0
 STANCHION_VSN  	    ?= 3.0.0
-RCSC_VSN            ?= 3.0.1
+RCSC_VSN            ?= 3.2.0
 
 # select Dockerfiles. For apps that we build ourself, we use either
 # the standard erlang:22.x base image (for 3.x tags), or the image
@@ -20,11 +20,17 @@ ifneq ($(RCS_VSN:2.%=xx), $(RCS_VSN))
 RCS_DOCKERFILE := Dockerfile-riak_cs-2.x
 else
 ifneq ($(RCS_VSN:3.0.%=xx), $(RCS_VSN))
-RCS_DOCKERFILE := Dockerfile-riak_cs-3.0.x
 COMPOSE_FILE_VERSION := 3.0
+RCS_DOCKERFILE := Dockerfile-riak_cs-3.0.x
 else
-RCS_DOCKERFILE := Dockerfile-riak_cs-3.1.x
 COMPOSE_FILE_VERSION := 3.1
+ifneq ($(RCS_VSN:3.1.%=xx), $(RCS_VSN))
+RCS_DOCKERFILE := Dockerfile-riak_cs-3.1.x
+else
+ifneq ($(RCS_VSN:3.2.%=xx), $(RCS_VSN))
+RCS_DOCKERFILE := Dockerfile-riak_cs-3.2.x
+endif
+endif
 endif
 
 ifneq ($(RCS_VSN:3.1.%=xx), $(RCS_VSN))
