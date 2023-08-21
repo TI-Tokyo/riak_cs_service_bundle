@@ -1,6 +1,6 @@
 #!/bin/env python
 
-# Copyright (c) 2021 TI Tokyo. All Rights Reserved.
+# Copyright (c) 2021-2023 TI Tokyo. All Rights Reserved.
 #
 # This file is provided to you under the Apache License,
 # Version 2.0 (the "License"); you may not use this file
@@ -56,12 +56,10 @@ RIAK_VSN=%s RIAK_CS_VSN=%s node=%s
 
 def get_rcs_user_creds(node):
     p = docker_exec_proc(node,
-                         ["/opt/riak_cs_control/bin/riak_cs_control", "eval",
-                          'io:format("~s ~s ~s\n", [riak_cs_control_configuration:cs_configuration(cs_admin_key),'
-                          'riak_cs_control_configuration:cs_configuration(cs_admin_secret),'
-                          'riak_cs_control_configuration:cs_configuration(cs_host)]).'])
-    [key, secret, host, _] = p.stdout.strip("\n").split()
-    return (host, (key, secret))
+                         ["/opt/riak-cs/bin/riak-cs", "eval",
+                          '{ok, {K,S}} = riak_cs_config:admin_creds(), {binary_to_list(K), binary_to_list(S)}.'])
+    [key, secret] = re.search(r'\{"(.+)", "(.+)"\}', p.stdout).groups()
+    return (key, secret)
 
 
 def main():
@@ -75,14 +73,11 @@ def main():
     tussle_name = args.docker_service_name
 
     rcs_nodes = discover_nodes(tussle_name, "riak_cs")
-    rcsc_nodes = discover_nodes(tussle_name, "riak_cs_control")
-    rcs_ext_ips = [find_external_ip(c["container"]) for c in rcs_nodes]
-    creds = expand_to_all_rcs_nodes(
-        dict([get_rcs_user_creds(n) for n in rcsc_nodes]),
-        rcs_nodes)
+    aa = [(find_external_ip(n["container"]),
+           get_rcs_user_creds(n)) for n in rcs_nodes]
 
     load_test(args.executable, args.options,
-              args.parallel, dict(zip(rcs_ext_ips, [creds[n["ip"]] for n in rcs_nodes])))
+              args.parallel, dict(aa))
 
 if __name__ == "__main__":
     main()
