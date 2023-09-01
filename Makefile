@@ -13,7 +13,11 @@ RIAK_VSN_NUM = $(subst riak-,,$(subst riak_kv-,,$(RIAK_VSN)))
 ifneq ($(patsubst 2.%,xx,$(RIAK_VSN_NUM)), $(RIAK_VSN_NUM))
 RIAK_DOCKERFILE := Dockerfile-riak-2.x
 else
-RIAK_DOCKERFILE := Dockerfile-riak-3.x
+ifneq ($(patsubst 3.0.%,xx,$(RIAK_VSN_NUM)), $(RIAK_VSN_NUM))
+RIAK_DOCKERFILE := Dockerfile-riak-3.0.x
+else
+RIAK_DOCKERFILE := Dockerfile-riak-3.2.x
+endif
 endif
 
 ifneq ($(RCS_VSN:2.%=xx), $(RCS_VSN))
