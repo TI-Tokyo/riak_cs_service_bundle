@@ -1,7 +1,7 @@
 .PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
 RIAK_VSN       	    ?= riak-3.2.0
-RCS_VSN    	    ?= 3.2.0
+RCS_VSN    	    ?= 3.2.1
 STANCHION_VSN  	    ?= 3.0.0
 RCSC_VSN            ?= 3.2.0
 
