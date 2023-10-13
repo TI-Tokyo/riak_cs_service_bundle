@@ -3,6 +3,7 @@ ARG RIAK_VSN
 
 EXPOSE 8087 8098 9080
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y git wget g++ libpam0g-dev
 
 ADD riak-${RIAK_VSN} /usr/src/S
@@ -16,6 +17,7 @@ ARG RIAK_VSN
 ARG RCS_BACKEND_1
 ARG RCS_BACKEND_2
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install libssl1.1 logrotate sudo
 
 COPY --from=compile-image /usr/src/S/rel/riak /opt/riak

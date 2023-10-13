@@ -5,6 +5,7 @@ ARG RCS_VSN
 
 EXPOSE 8080 8000 8085
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install libssl-dev
 
 ADD riak_cs-${RCS_VSN} /usr/src/S
@@ -14,8 +15,8 @@ RUN make rel
 
 FROM debian:bullseye AS runtime-image
 
-RUN apt-get update
-RUN apt-get -y install libssl1.1 python3-boto3 python3-httplib2
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get -y install libssl1.1 python3-boto3 python3-httplib2
 
 COPY --from=compile-image /usr/src/S/rel/riak-cs /opt/riak-cs
 ENV RCS_PATH=/opt/riak-cs

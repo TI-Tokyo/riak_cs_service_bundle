@@ -9,6 +9,7 @@ ARG RCSC_VSN=3.0.0 \
 FROM erlang:25 AS compile-image
 ARG RCSC_VSN
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y libssl-dev
 
 EXPOSE 8090
@@ -35,6 +36,7 @@ ENV CS_HOST=${CS_HOST} \
     LOG_DIR=/opt/riak_cs_control/log \
     LOGGER_LEVEL=info
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install libssl1.1
 
 COPY --from=compile-image /usr/src/S/_build/rel/rel/riak_cs_control /opt/riak_cs_control

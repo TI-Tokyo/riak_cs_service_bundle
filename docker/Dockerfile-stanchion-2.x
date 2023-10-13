@@ -3,6 +3,7 @@ ARG STANCHION_VSN
 
 EXPOSE 8085
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && install -y git wget g++ libpam0g-dev
 
 ADD stanchion-${STANCHION_VSN} /usr/src/S
