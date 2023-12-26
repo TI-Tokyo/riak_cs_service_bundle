@@ -372,7 +372,7 @@ def main():
 
     admin_users = {}
     if not have_old_data:
-        admin_email = "admin@tussle.org"
+        admin_email = "admin@me.com"
         admin_name = "admin"
         for c in riak_topo.keys():
             rcs_node_id = get_one_rcs_node_id_for_riak_cluster(riak_topo[c], rcs_topo)
