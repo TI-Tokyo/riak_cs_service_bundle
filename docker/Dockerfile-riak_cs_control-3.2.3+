@@ -1,0 +1,14 @@
+FROM debian:bullseye
+ARG RCSC_VSN
+
+ADD riak_cs_control-${RCSC_VSN}/bin /opt/riak_cs_control
+ADD riak_cs_control-${RCSC_VSN}/app/build /opt/riak_cs_control/www
+
+ENV RCSC_DOCROOT=/opt/riak_cs_control/www
+
+EXPOSE 8090
+
+RUN apt-get update && apt-get install python3 -y
+CMD /opt/riak_cs_control/riak-cs-control
+
+#CMD while :; do sleep 1m; done

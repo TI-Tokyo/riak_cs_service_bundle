@@ -292,19 +292,27 @@ def start_rcsc_nodes(nodes_annotated):
         p.starmap(start_rcsc_node, [(nodes_annotated[i], i) for i in range(len(nodes_annotated))])
     subprocess.run(['stty', 'sane'])
     print()
+
 def start_rcsc_node(node_annotated, i):
     time.sleep(i * .3)
     (node, rcs_node, user) = node_annotated
-    while True:
-        subprocess.run(args = ["docker", "exec", "-it",
-                               "--env", "CS_HOST=" + rcs_node["ip"],
-                               "--env", "CS_ADMIN_KEY=" + user["key_id"],
-                               "--env", "CS_ADMIN_SECRET=" + user["key_secret"],
-                               node["container"],
-                               "/opt/riak_cs_control/bin/riak_cs_control", "daemon"])
-        if "pong\n" == docker_exec_proc_(node, ["/opt/riak_cs_control/bin/riak_cs_control", "ping"]).stdout:
-            return
-        print(" ", flush = True, end = '')
+
+    vsn = semver.VersionInfo.parse(
+        re.search(r"\d+\.\d+\.\d+", os.getenv("RCSC_VSN")).group(0))
+    if vsn.major * 10000 + vsn.minor * 100 + vsn.patch >= 30203:
+        pass
+    else:
+        while True:
+            subprocess.run(args = ["docker", "exec", "-it",
+                                   "--env", "CS_HOST=" + rcs_node["ip"],
+                                   "--env", "CS_ADMIN_KEY=" + user["key_id"],
+                                   "--env", "CS_ADMIN_SECRET=" + user["key_secret"],
+                                   node["container"],
+                                   "/opt/riak_cs_control/bin/riak_cs_control", "daemon"])
+            if "pong\n" == docker_exec_proc_(node, ["/opt/riak_cs_control/bin/riak_cs_control", "ping"]).stdout:
+                return
+
+    print(" ", flush = True, end = '')
 
 
 def main():
@@ -378,7 +386,17 @@ def main():
 
             vsn = semver.VersionInfo.parse(
                 re.search(r"\d+\.\d+\.\d+", os.getenv("RCS_VSN")).group(0))
-            if vsn.major * 100 + vsn.minor >= 302:
+            if vsn.major * 10000 + vsn.minor * 100 + vsn.patch >= 30203:
+                p = docker_exec_proc(rcs_node, ["/opt/riak-cs/bin/riak-cs",
+                                                "admin", "create-admin-user",
+                                                "--terse"])
+                [a1, a2, a3] = p.stdout.split(" ")
+                admin_user = {
+                    'key_id': a1,
+                    'key_secret': a2,
+                    'id': a3
+                }
+            elif vsn.major * 100 + vsn.minor >= 302:
                 p = docker_exec_proc(rcs_node, ["/opt/riak-cs/priv/tools/create-admin",
                                                 "-u"+admin_name,
                                                 "-e"+admin_email,

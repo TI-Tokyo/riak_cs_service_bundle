@@ -1,9 +1,9 @@
 .PHONY: ensure-dirs sources R16 build start start-quick stop clean
 
 RIAK_VSN       	    ?= riak-3.2.0
-RCS_VSN    	    ?= 3.2.1
+RCS_VSN    	    ?= 3.2.3
 STANCHION_VSN  	    ?= 3.0.0
-RCSC_VSN            ?= 3.2.0
+RCSC_VSN            ?= 3.2.3
 
 # select Dockerfiles. For apps that we build ourself, we use either
 # the standard erlang:22.x base image (for 3.x tags), or the image
@@ -49,9 +49,15 @@ endif
 endif
 endif
 
-# old riak-cs-control won't build with R16
-# (and it doesn't really matter anyway)
+HAVE_ELM_RCSC := $(shell echo "print(\""$(RCSC_VSN)"\" > \"3.2.2\")" | python -)
+
+ifeq "$(HAVE_ELM_RCSC)" "True"
+COMPOSE_FILE_VERSION := 3.1
+RCSC_DOCKERFILE := Dockerfile-riak_cs_control-3.2.3+
+else
+COMPOSE_FILE_VERSION := 3.0
 RCSC_DOCKERFILE := Dockerfile-riak_cs_control-3.x
+endif
 
 
 RIAK_PLATFORM_DIR ?= $(shell pwd)/p/riak
