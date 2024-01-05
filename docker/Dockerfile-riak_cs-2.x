@@ -3,6 +3,7 @@ ARG RCS_VSN
 
 EXPOSE 8080 8000
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && install -y git wget g++ libpam0g-dev
 
 ADD riak_cs-${RCS_VSN} /usr/src/S

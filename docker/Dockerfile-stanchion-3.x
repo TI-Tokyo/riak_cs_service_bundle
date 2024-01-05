@@ -13,6 +13,7 @@ RUN make rel
 
 FROM debian:buster AS runtime-image
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get -y install libssl1.1
 
 COPY --from=compile-image /usr/src/S/rel/stanchion /opt/stanchion
